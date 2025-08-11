@@ -1,0 +1,6 @@
+2025-08-08 17:48:48.969640+08:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "PRICEBOOK" not found (this database is empty); SQL statement:
+SELECT * FROM pricebook [42104-224]
+2025-08-08 17:49:02.600887+08:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "PRICEBOOK" not found (this database is empty); SQL statement:
+SELECT * FROM pricebook [42104-224]
