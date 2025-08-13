@@ -5,6 +5,7 @@ import common.Controller.DollarConversion;
 import common.Dto.ApiResponse;
 import common.Utils.TransactionIdGenerator;
 import config.ApiConfig;
+import config.SocketConfig;
 
 import javax.swing.*;
 import java.awt.*;
@@ -36,6 +37,8 @@ public class Pane {
     private TransactionIdGenerator transactionIdGenerator;
     private String transactionId;
 
+    private SocketConfig clientSideVj;
+
 
     public Pane(){
         layeredPane = new JLayeredPane();
@@ -46,6 +49,8 @@ public class Pane {
                 "Items Scanned--------------Price-----------Quantity"));
 
         prices = new ArrayList<>();
+        clientSideVj = new SocketConfig("localhost", 8080);
+        clientSideVj.sendLogAsync("Mock Basic Point of Sales System is Online!");
 
         customLabel = new Label();
 
@@ -103,12 +108,15 @@ public class Pane {
 
             int quantity = itemQuantityHashMap.getOrDefault(itemName, 1);
             double totalItemPrice = finalPrice * quantity;
-            String displayText = String.format("%-20s $%.2f           (x%d)", itemName, totalItemPrice, quantity);
+            String displayText = String.format("%-20s $%.2f        (x%d)", itemName, totalItemPrice, quantity);
 
             if (!itemSet.contains(itemName)) {
                 // New item - create new label AND increment labelY
                 itemSet.add(itemName);
                 itemLabelInPanel.setText(displayText);
+
+                // Send logs to the Virtual Journal
+                clientSideVj.sendLogAsync("Item Added: " + itemName + " \nPrice: " + finalPrice + " \nQuantity: " + quantity + "\n");
                 itemLabels.put(itemName, itemLabelInPanel);
                 itemLabelInPanel.setBounds(10, labelY, 380, 20);
                 labelY += 25; // Only increment for new labels
@@ -118,6 +126,7 @@ public class Pane {
                 if (existingLabel != null) {
                     existingLabel.setText(displayText);
                 }
+                clientSideVj.sendLogAsync("Item Updated: " + itemName + " \nPrice: " + finalPrice + " \nUpdated Quantity: " + quantity + "\n");
                 System.out.println("Updated: " + displayText);
             }
 
@@ -207,15 +216,12 @@ public class Pane {
         return dollarConversion.getNextDollarValue(totalAfterTax);
     }
 
-    public Double handleNextDollar(double value){
-        nextDollarValue = value;
-        System.out.println("Next Dollar Value: " + nextDollarValue);
-        return null;
-    }
-
 
     private double calculateTotal() {
-        return prices.stream().mapToDouble(Double::doubleValue).sum();
+
+        Double calculatedTotal = prices.stream().mapToDouble(Double::doubleValue).sum();
+        clientSideVj.sendLogAsync("Calculated Total " + calculatedTotal);
+        return calculatedTotal;
     }
 
 
@@ -251,6 +257,7 @@ public class Pane {
         } else {
             popUpModal = new Modal();
             popUpModal.displayModal("Empty Cart", "No items in the cart. Please add items to proceed.", "OK", "Cancel");
+            clientSideVj.sendLogAsync("Item Quantity HashMap is Empty" + "\n");
             System.out.println("Item Quantity HashMap is Empty");
             return;
         }
@@ -281,6 +288,8 @@ public class Pane {
 
         totalWithTax = dollarConversion.getNextDollarValue(discountedTotalAmount);
 
+        clientSideVj.sendLogAsync("Total With Tax: " + totalWithTax);
+
         popUpModal = new Modal();
 
         if (showModal) {
@@ -290,10 +299,13 @@ public class Pane {
                     "Credit/Debit");
 
             if ("Cash Payment".equals(userChoice)) {
+                clientSideVj.sendLogAsync("Cash Payment is Selected");
                 System.out.println("Cash Payment is Selected");
             } else {
                 System.out.println("Credit/Debit Payment is Selected");
+                clientSideVj.sendLogAsync("Credit/Debit Payment is Selected");
             }
+            clientSideVj.sendLogAsync("Please pay a total of: " + String.format("$%.2f", value));
             System.out.println("Please pay a total of: " + String.format("$%.2f", value));
         }
 
@@ -321,6 +333,7 @@ public class Pane {
         layeredPane.add(customerChangeLabel, JLayeredPane.DEFAULT_LAYER);
 
         Double totalAfterTax = customLabel.getDouble("totalWithTax", discountedTotalAmount);
+
 
         if(buttonName.equalsIgnoreCase("Exact Dollar")){
             nextTotalLabel.setText(String.format("Exact Dollar Value:  \t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", totalAfterTax));
@@ -352,9 +365,11 @@ public class Pane {
             // Only proceed with void if user clicked "Yes"
             if (!"Yes".equals(userChoice)) {
                 System.out.println("Void Transaction Cancelled");
+                clientSideVj.sendLogAsync("Void Transaction Cancelled" + "\n");
                 return; // Exit method without voiding if user clicked "No" or closed dialog
             }
             System.out.println("Void Transaction Confirmed");
+            clientSideVj.sendLogAsync("Void Transaction Confirmed" + "\n");
         }
 
         //Clear HashMaps
@@ -478,12 +493,15 @@ public class Pane {
     public ApiResponse discountApi(){
 
         ApiConfig apiConfig = new ApiConfig();
+        clientSideVj.sendLogAsync("Discount API is being called" + "\n");
         // Fixed JSON request to match API expectations
         String jsonRequest = String.format(
                 "{\"transactionId\":\"%s\", \"totalAmountBeforeTax\":%.2f}",
                 transactionId,
                 total
         );
+
+        clientSideVj.sendLogAsync("API Request Parameters" + jsonRequest + "\n");
         ApiResponse discountResponse = apiConfig.callDiscountApi(jsonRequest);
         try {
             // Disassemble the response data to different variables
@@ -496,14 +514,13 @@ public class Pane {
 
             discountedTotalAmount = finalTotal;
 
-
-            System.out.println("DISCOUNTED AMOUNT: " + discountedTotalAmount);
-
-
+            clientSideVj.sendLogAsync("API Request Response" + discountResponse + "\n");
 
             System.out.println("Discount Response: " + responseTransactionId + " " + discountPercentage + " " + discountAmount + " " + finalTotal);
 
         } catch (Exception e) {
+
+            clientSideVj.sendLogAsync("Failed to get discount" + e.getMessage() + "\n");
             System.err.println("Failed to get discount: " + e.getMessage());
         }
         return discountResponse;

@@ -1,6 +1,7 @@
 package common.Model;
 
 import common.Controller.DollarConversion;
+import config.SocketConfig;
 
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -14,6 +15,7 @@ public class Button {
     private final Pane pane;
 
     private DollarConversion dollarConversion;
+    private SocketConfig clientSideVj;
 
     public Button(Pane pane) {
         this.pane = pane;
@@ -21,6 +23,11 @@ public class Button {
     }
 
     public AbstractButton testButtonPanel(String buttonName, ArrayList<Integer> buttonStyle){
+
+        // Send logs to Virtual Journal Server
+        clientSideVj = new SocketConfig("localhost", 8080);
+
+
         JButton button = new JButton(buttonName);
         button.setBounds(buttonStyle.get(0),buttonStyle.get(1),200,200);
         button.setBackground(new Color(0xFAF9EE));
@@ -29,6 +36,7 @@ public class Button {
         button.setBorder(new LineBorder(Color.DARK_GRAY, 1));
 
         if (buttonName.equalsIgnoreCase("Void Transaction")){
+
             button.setBackground(new Color(0xAF3E3E));
             button.setForeground(Color.WHITE);
             button.setOpaque(true);
@@ -72,28 +80,32 @@ public class Button {
                                 && !buttonName.equalsIgnoreCase("Void Item")
                                 && !buttonName.equalsIgnoreCase("Quantity Change"))
                 {
+                    clientSideVj.sendLogAsync(buttonName + " is Clicked");
                     pane.addTextToScreen(buttonName, null);
                 }
                 else if (buttonName.equalsIgnoreCase("Next Dollar")){
                     if (dollarConversion == null) {
                         dollarConversion = new DollarConversion();
 
-//                        pane.handleNextDollar();
-
                     }
+                    clientSideVj.sendLogAsync(buttonName + " is Clicked");
                     pane.addTextToScreen(buttonName, null);
 
                 }
                 else if (buttonName.equalsIgnoreCase("Void Transaction")){
+                    clientSideVj.sendLogAsync(buttonName + " is Clicked");
                     pane.addTextToScreen(buttonName, null);
                 }
                 else if (buttonName.equalsIgnoreCase("Void Item")){
+                    clientSideVj.sendLogAsync(buttonName + " is Clicked");
                     pane.addTextToScreen(buttonName, null);
                 }
                 else if (buttonName.equalsIgnoreCase("Exact Dollar")){
+                    clientSideVj.sendLogAsync(buttonName + " is Clicked");
                     pane.addTextToScreen(buttonName, null);
                 }
                 else if (buttonName.equalsIgnoreCase("Quantity Change")){
+                    clientSideVj.sendLogAsync(buttonName + " is Clicked");
                     pane.addTextToScreen(buttonName, null);
                 }
 
