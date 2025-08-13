@@ -3,6 +3,7 @@ package common.Model;
 import common.Controller.DollarConversion;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
 public class Label {
@@ -15,43 +16,48 @@ public class Label {
         JLabel label = new JLabel();
 
         label.setFont(new Font("Monospaced", Font.PLAIN, 15));
+        // Make background transparent
+        label.setBorder(new EmptyBorder(10, 0, 10, 0));
+        label.setOpaque(false); // This is the key line
 
         switch (labelName) {
             case "totalBeforeTax":
-                label.setText("Total Before Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
+                label.setText("Total Before Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
                 label.setBounds(10,530,380,20);
                 break;
                 case "computedTax":
-                    label.setText("Computed Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
+                    label.setText("Computed Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
                     label.setBounds(10,550,380,20);
                     break;
                     case "totalWithTax":
-                        label.setText("Total After Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
+                        label.setText("Total After Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
                         label.setBounds(10,570,380,20);
                         break;
                         case "nextTotal":
+                            label.setBackground(new Color(0x727D73));
+                            label.setOpaque(true);
                             label.setBounds(10,590,380,20);
                             break;
                         case "customerChange":
+                            label.setBackground(new Color(0xDA6C6C));
+
                             label.setBounds(10,610,380,20);
+                            label.setOpaque(true);
                             break;
             default:
                 getDouble("Default", value);
-                label.setText("Default: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
+                label.setText("Default: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
                 label.setBounds(10, 590,380,20);
 
         }
-        label.setOpaque(true);
         label.setVisible(true);
         return label;
     }
 
 
     public double getDouble(String labelName, double value){
-        System.out.println("[TRACE]getDouble function " + value);
         switch (labelName){
             case "totalBeforeTax":
-            case "nextTotal":
                 customValue = value;
                 System.out.println("Total Before Tax: " + String.format("%.2f", customValue));
                 return customValue;

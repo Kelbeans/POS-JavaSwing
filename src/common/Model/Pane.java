@@ -1,12 +1,11 @@
 package common.Model;
 
 import common.Controller.BarcodeScanner;
-import common.Controller.DollarConversion;
+import common.Utils.TransactionIdGenerator;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.*;
-import java.util.List;
 
 public class Pane {
     private final JLayeredPane layeredPane;
@@ -24,14 +23,19 @@ public class Pane {
     private Set<String> itemSet;
     private Label customLabel;
     private Modal popUpModal;
+    private ItemQuantityDialog itemQuantityDialog;
+    private HashMap<String, Integer> itemQuantityHashMap = new HashMap<>();
+    private HashMap<String, JLabel> itemLabels = new HashMap<>();
+    private TransactionIdGenerator transactionIdGenerator;
 
 
     public Pane(){
         layeredPane = new JLayeredPane();
         layeredPane.setBounds(600,1,400,600);
+        layeredPane.setBackground(new Color(0xECFAE5));
         layeredPane.setOpaque(true);
         layeredPane.setBorder(BorderFactory.createTitledBorder(
-                "Items Scanned-----------------------------Quantity"));
+                "Items Scanned--------------Price-----------Quantity"));
 
         prices = new ArrayList<>();
 
@@ -46,6 +50,99 @@ public class Pane {
         layeredPane.add(totalLabel, JLayeredPane.DEFAULT_LAYER);
         layeredPane.add(computedTaxLabel, JLayeredPane.DEFAULT_LAYER);
         layeredPane.add(totalWithTaxLabel, JLayeredPane.DEFAULT_LAYER);
+    }
+
+    public void addTextToScreen(String itemName, Double scannedPrice) {
+        double getPrice = itemPrice(itemName);
+        double finalPrice;
+
+        customLabel = new Label();
+
+        if (scannedPrice != null && scannedPrice > 0) {
+            finalPrice = scannedPrice;
+        } else if (getPrice > 0) {
+            finalPrice = getPrice;
+        } else {
+            finalPrice = 0.00;
+        }
+
+
+        // Quantity Function Calling
+        quantityPerItem(itemName);
+
+        prices.add(finalPrice);
+
+        JLabel itemLabelInPanel = new JLabel();
+        itemLabelInPanel.setFont(new Font("Monospaced", Font.PLAIN, 15));
+
+        if (itemSet == null) {
+            itemSet = new HashSet<>();
+        }
+
+        /*
+            * Fix to the Quantity issue that duplicates the same label even its present.
+            * We created a new class level HashMap to store the quantity of each item.
+            * private HashMap<String, JLabel> itemLabels = new HashMap<>();
+            * We also fix the invisible label gap.
+        */
+        if (
+                !"Next Dollar".equalsIgnoreCase(itemName) &&
+                        !"Exact Dollar".equalsIgnoreCase(itemName) &&
+                        !"Void Transaction".equalsIgnoreCase(itemName) &&
+                        !"Void Item".equalsIgnoreCase(itemName)  &&
+                        !"Quantity Change".equalsIgnoreCase(itemName)) {
+
+            int quantity = itemQuantityHashMap.getOrDefault(itemName, 1);
+            double totalItemPrice = finalPrice * quantity;
+            String displayText = String.format("%-20s $%.2f           (x%d)", itemName, totalItemPrice, quantity);
+
+            if (!itemSet.contains(itemName)) {
+                // New item - create new label AND increment labelY
+                itemSet.add(itemName);
+                itemLabelInPanel.setText(displayText);
+                itemLabels.put(itemName, itemLabelInPanel);
+                itemLabelInPanel.setBounds(10, labelY, 380, 20);
+                labelY += 25; // Only increment for new labels
+            } else {
+                // Existing item - just update the existing label, don't increment labelY
+                JLabel existingLabel = itemLabels.get(itemName);
+                if (existingLabel != null) {
+                    existingLabel.setText(displayText);
+                }
+                System.out.println("Updated: " + displayText);
+            }
+        }
+
+
+        total = calculateTotal();
+
+
+        //Calling Action Button Function
+        actionButtons(itemName);
+
+        totalLabel.setText(
+                String.format("Total Before Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("totalBeforeTax", total))
+        );
+        computedTaxLabel.setText(
+                String.format("Computed Tax:\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("computedTax", total))
+        );
+
+        totalWithTaxLabel.setText(
+                String.format("Total After Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("totalWithTax", total))
+        );
+
+        totalWithTax = customLabel.getDouble("totalWithTax", total);
+
+
+        /*
+            * We move this code inside the Next Dollar Function to avoid the duplicate label issue and invisible gap
+              itemLabelInPanel.setBounds(10, labelY, 380, 20);
+              labelY += 25;
+        */
+        itemLabelInPanel.setOpaque(false);
+        itemLabelInPanel.setVisible(true);
+        layeredPane.add(itemLabelInPanel, JLayeredPane.DEFAULT_LAYER);
+
     }
 
     public double itemPrice(String itemName){
@@ -68,7 +165,7 @@ public class Pane {
             case "Milk Shake":
                 price = 3.50;
                 break;
-                case "Next Dollar":
+            case "Next Dollar":
             case "Exact Dollar":
             case "Void Transaction":
                 price = 0.00;
@@ -79,83 +176,11 @@ public class Pane {
         return price;
     }
 
-    public void addTextToScreen(String itemName, Double scannedPrice) {
-        double getPrice = itemPrice(itemName);
-        double finalPrice;
-
-        customLabel = new Label();
-
-        if (scannedPrice != null && scannedPrice > 0) {
-            finalPrice = scannedPrice;
-        } else if (getPrice > 0) {
-            finalPrice = getPrice;
-        } else {
-            finalPrice = 0.00;
-        }
-
-        prices.add(finalPrice);
-
-        JLabel label = new JLabel();
-
-//        System.out.println("Array of Prices: " + prices);
-
-        label.setFont(new Font("Monospaced", Font.PLAIN, 15));
-
-        if (itemSet == null) {
-            itemSet = new HashSet<>();
-        }
-        if (
-                !"Next Dollar".equalsIgnoreCase(itemName) &&
-                !"Exact Dollar".equalsIgnoreCase(itemName) && !"Void Transaction".equalsIgnoreCase(itemName)) {
-
-            itemSet.add(itemName);
-            String displayText = String.format("%s: $%.2f", itemName, finalPrice);
-            label.setText(displayText);
-            System.out.println(displayText);
-        }
-
-        if(itemName.equalsIgnoreCase("Void Transaction")){
-            voidTransact(true);
-        }
-
-
-        System.out.println("Item List: " + itemSet);
-
-        total = calculateTotal();
-
-        totalLabel.setText(
-                String.format("Total Before Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("totalBeforeTax", total))
-        );
-        computedTaxLabel.setText(
-                String.format("Computed Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("computedTax", total))
-        );
-
-        totalWithTaxLabel.setText(
-                String.format("Total After Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("totalWithTax", total))
-        );
-
-        if (itemName.equalsIgnoreCase("Next Dollar")) {
-            layeredPane.add(nextTotalLabel, JLayeredPane.DEFAULT_LAYER);
-            layeredPane.add(customerChangeLabel, JLayeredPane.DEFAULT_LAYER);
-            nextTotalLabel.setText(String.format("Next Dollar Value:  \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", nextDollarValue));
-            customerChangeLabel.setText(String.format("Customer Change:  \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", nextDollarValue - totalWithTax));
-            layeredPane.setBounds(600,1,400,640);
-        }
-
-        totalWithTax = customLabel.getDouble("totalWithTax", total);
-        label.setBounds(10, labelY, 380, 20);
-        labelY += 25;
-
-        label.setOpaque(true);
-        label.setVisible(true);
-        layeredPane.add(label, JLayeredPane.DEFAULT_LAYER);
-
-    }
-
     public void nextDollarValue(double value){
         nextDollarValue = value;
         System.out.println("Next Dollar Value: " + nextDollarValue);
     }
+
 
 
     public double getTotalAfterTax() {
@@ -178,29 +203,122 @@ public class Pane {
         barcodeScanner.scanBarcode();
     }
 
-//    public int quantityOfItem(String itemName) {
-//
-//        itemList = new ArrayList<>();
-//        System.out.println("Item List in the Quantity Function: " + itemList);
-//        itemList.add(itemName);
-//        int quantity = 0;
-//        for (String item : itemList) {
-//            if (item.equalsIgnoreCase(itemName)) {
-//                quantity++;
-//            }
-//        }
-//
-//        System.out.println("Quantity of " + itemName + ": " + quantity);
-//        return quantity;
-//    }
 
+
+    /*
+     * Action Buttons *
+     * Next Dollar Button
+     * Void Transaction Button
+     * Void Item Button
+     * Quantity Change Button
+     */
+
+    public void actionButtons(String itemName){
+
+        if (!itemQuantityHashMap.isEmpty()) {
+            if (itemName.equalsIgnoreCase("Next Dollar") || itemName.equalsIgnoreCase("Exact Dollar")) {
+                nextDollarButtonIsClicked(true, itemName, totalWithTax);
+                transactionIdGenerator = new TransactionIdGenerator();
+                transactionIdGenerator.generateTransactionId();
+            }
+        } else {
+            popUpModal = new Modal();
+            popUpModal.displayModal("Empty Cart", "No items in the cart. Please add items to proceed.", "OK", "Cancel");
+            System.out.println("Item Quantity HashMap is Empty");
+            return;
+        }
+
+        if(itemName.equalsIgnoreCase("Void Transaction")){
+            voidTransact(true);
+        }
+
+        if (itemName.equalsIgnoreCase("Void Item")) {
+            voidItemTransaction(true);
+        }
+
+        if (itemName.equalsIgnoreCase("Quantity Change")) {
+            changeItemQuantity(true, "Juice", 1);
+        }
+
+    }
+
+    /*
+        * Next Dollar Case Fix to Illegal Component Issue. Need to refresh the label to display the new value.
+        * This handles the Next Dollar Button and the Exact Dollar Button.
+    */
+    public void nextDollarButtonIsClicked(boolean showModal, String buttonName, Double value){
+        popUpModal = new Modal();
+
+
+
+        if (showModal) {
+            String userChoice = popUpModal.displayModal("Payment Transaction Confirmation",
+                    "Select a Payment Method",
+                    "Cash Payment",
+                    "Credit/Debit");
+
+            // Only proceed with void if user clicked "Yes"
+            if ("Cash Payment".equals(userChoice)) {
+                System.out.println("Cash Payment is Selected");
+            }
+            else {
+                System.out.println("Credit/Debit Payment is Selected");
+            }
+            System.out.println("Please pay a total of: " + String.format("$%.2f", value));
+        }
+
+        layeredPane.setBounds(600,1,400,643);
+        totalWithTaxLabel.setOpaque(true);
+        totalWithTaxLabel.setBackground(new Color(0x727D73));
+        // Remove components if they already exist
+        layeredPane.remove(nextTotalLabel);
+        layeredPane.remove(customerChangeLabel);
+
+        // Now add them
+        layeredPane.add(nextTotalLabel, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(customerChangeLabel, JLayeredPane.DEFAULT_LAYER);
+
+        if(buttonName.equalsIgnoreCase("Exact Dollar")){
+            nextTotalLabel.setText(String.format("Exact Dollar Value:  \t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", totalWithTax));
+            customerChangeLabel.setText(String.format("Customer Change:  \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", totalWithTax - totalWithTax));
+        } else {
+            nextTotalLabel.setText(String.format("Next Dollar Value:  \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", nextDollarValue));
+            customerChangeLabel.setText(String.format("Customer Change:  \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", nextDollarValue - totalWithTax));
+        }
+
+        // Refresh the display
+        layeredPane.revalidate();
+        layeredPane.repaint();
+    }
+
+
+    /*
+        * Void Transaction Case Fix to Illegal Component Issue. Need to refresh the label to display the new value.
+        * Need to remove all components and re-add them.
+    */
     private void voidTransact(boolean showModal) {
-
         popUpModal = new Modal();
 
         if (showModal) {
-            popUpModal.displayModal("Void Transaction Confirmation");
+            String userChoice = popUpModal.displayModal("Void Transaction Confirmation",
+                    "Are you sure you want to void the transaction?",
+                    "Yes",
+                    "No");
+
+            // Only proceed with void if user clicked "Yes"
+            if (!"Yes".equals(userChoice)) {
+                System.out.println("Void Transaction Cancelled");
+                return; // Exit method without voiding if user clicked "No" or closed dialog
+            }
+            System.out.println("Void Transaction Confirmed");
         }
+
+        //Clear HashMaps
+        itemQuantityHashMap.clear();
+        itemLabels.clear();
+        itemSet.clear();
+
+        // Reset panel - only executes if showModal is false OR user clicked "Yes"
         layeredPane.removeAll();
         prices.clear();
         itemSet.clear();
@@ -209,6 +327,7 @@ public class Pane {
         nextDollarValue = 0.00;
         labelY = 25;
         totalLabel.setText("Total Before Tax: $0.00");
+        totalWithTaxLabel.setOpaque(false);
         computedTaxLabel.setText("Computed Tax: $0.00");
         totalWithTaxLabel.setText("Total After Tax: $0.00");
         layeredPane.setBounds(600,1,400,600);
@@ -219,13 +338,99 @@ public class Pane {
         layeredPane.repaint();
     }
 
-    public HashMap<String, Integer> quantityPerItem(String itemName){
-        int quantity = 1;
-        HashMap<String, Integer> itemQuantity = new HashMap<>();
-            itemQuantity.put(itemName, 1);
-            if (itemQuantity.containsKey(itemName))
-                itemQuantity.put(itemName, quantity + 1);
-        return itemQuantity;
+    // Fix the hashMap issue with quantity. By in case of using a class level currentQuantity variable we change it to Global Scope.
+    public HashMap<String, Integer> quantityPerItem(String itemName) {
+        if (!itemName.equalsIgnoreCase("Next Dollar")
+                && !itemName.equalsIgnoreCase("Exact Dollar")
+                && !itemName.equalsIgnoreCase("Void Transaction")
+                && !itemName.equalsIgnoreCase("Void Item")
+                && !itemName.equalsIgnoreCase("Quantity Change")) {
+            if (itemQuantityHashMap.containsKey(itemName)) {
+                int currentQuantity = itemQuantityHashMap.get(itemName);
+                itemQuantityHashMap.put(itemName, currentQuantity + 1);
+                System.out.println("Updated Item Name: " + itemName + "\nUpdated Quantity: " + (currentQuantity + 1));
+            } else {
+                itemQuantityHashMap.put(itemName, 1);
+                System.out.println("Item Name: " + itemName + " \nQuantity: 1");
+            }
+        }
+        System.out.println("Item Quantity HashMap: " + itemQuantityHashMap);
+        return itemQuantityHashMap;
+    }
+
+
+    public void voidItemTransaction(boolean showModal) {
+        popUpModal = new Modal();
+        if (showModal) {
+            String userChoice = popUpModal.displayInputModal("Void Item Transaction",
+                    "Enter an Item to Void",
+                    "Item to void",
+                    "Proceed",
+                    "Cancel");
+
+            // Check if userChoice is "Cancel" or null (dialog closed)
+            if ("Cancel".equals(userChoice) || userChoice == null) {
+                System.out.println("Voiding Item: is cancelled");
+                return; // Exit method without voiding
+            }
+
+            // If userChoice is not "Proceed", it must be the item name
+            String itemName = "Proceed".equals(userChoice) ? null : userChoice;
+
+            // If no valid item name was provided, print message and return
+            if (itemName == null || itemName.trim().isEmpty()) {
+                System.out.println("No valid item name provided for voiding");
+                return;
+            }
+
+            System.out.println("Item to void: " + itemName);
+            voidItemConfirmation(showModal, itemName);
+        }
+    }
+
+
+    public void voidItemConfirmation(boolean showModal, String itemName) {
+        popUpModal = new Modal();
+        if (showModal) {
+            String userChoice = popUpModal.displayModal("Void Item Confirmation",
+                    "Are you sure you want to remove: " + (itemName != null ? itemName : "Unknown Item"),
+                    "Yes", "No");
+
+            // Only proceed with void if user clicked "Yes"
+            if (!"Yes".equals(userChoice)) {
+                System.out.println("Voiding Item: " + (itemName != null ? itemName : "Unknown Item") + " is cancelled");
+                return; // Exit method without voiding
+            }
+            System.out.println("Item: " + (itemName != null ? itemName : "Unknown Item") + " is voided");
+        }
+
+        if (itemName != null && itemLabels.containsKey(itemName)) {
+            itemLabels.remove(itemName);
+            layeredPane.remove(itemLabels.get(itemName));
+            layeredPane.revalidate();
+            layeredPane.repaint();
+        }
+    }
+
+    public void changeItemQuantity(boolean showModal, String itemName, int quantity){
+        itemQuantityDialog = new ItemQuantityDialog();
+
+
+
+        if (showModal) {
+            String userChoice = itemQuantityDialog.displayQuantityModal("Quantity Change Confirmation",
+                    "Enter an Item to Change Quantity",
+                    "Proceed", "Cancel");
+        }
+
+        String fetchInputtedValue =  itemQuantityDialog.returnItemValues();
+        itemQuantityDialog.processItemValues(fetchInputtedValue);
+        System.out.println(fetchInputtedValue);
+
+
+        if (itemLabels.containsKey(fetchInputtedValue)) {
+            itemQuantityHashMap.put(itemName, quantity);
+        }
     }
 
 }
