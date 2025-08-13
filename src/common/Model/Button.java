@@ -3,7 +3,6 @@ package common.Model;
 import common.Controller.DollarConversion;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -78,11 +77,10 @@ public class Button {
                 else if (buttonName.equalsIgnoreCase("Next Dollar")){
                     if (dollarConversion == null) {
                         dollarConversion = new DollarConversion();
-                    }
-                    double value = pane.getTotalAfterTax();
-                    double convertedValue = dollarConversion.getNextDollarValue(value);
 
-                    pane.nextDollarValue(convertedValue);
+//                        pane.handleNextDollar();
+
+                    }
                     pane.addTextToScreen(buttonName, null);
 
                 }
