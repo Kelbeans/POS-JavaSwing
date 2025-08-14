@@ -1,6 +1,7 @@
 package common.Model;
 
 import common.Controller.DollarConversion;
+import config.SocketConfig;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -11,9 +12,13 @@ public class Label {
     private double TAX_RATE = 0.07;
     private double customValue;
     private DollarConversion dollarConversion;
+    private SocketConfig clientSideVj;
+
 
     public JLabel getLabel(String labelName, double value) {
         JLabel label = new JLabel();
+
+
 
         label.setFont(new Font("Monospaced", Font.PLAIN, 15));
         // Make background transparent
@@ -64,6 +69,9 @@ public class Label {
 
 
     public double getDouble(String labelName, double value){
+
+        clientSideVj = new SocketConfig("localhost", 8080);
+
         switch (labelName){
             case "totalBeforeTax":
                 customValue = value;
@@ -71,11 +79,11 @@ public class Label {
                 return customValue;
             case "computedTax":
                 customValue = value * TAX_RATE;
-                System.out.println("Computed Tax: " + String.format("%.2f", customValue));
+                System.out.println("Computed Tax 7%%: " + String.format("%.2f", customValue));
                 return customValue;
                 case "discount":
                 customValue = value;
-                System.out.println("Discount 20 Percent: " + String.format("%.2f", customValue));
+                System.out.println("Discount 20%%: " + String.format("%.2f", customValue));
                 return customValue;
             case "totalWithTax":
                 customValue = value + (value * TAX_RATE);
@@ -94,11 +102,33 @@ public class Label {
                     System.out.println("Next Dollar Value: " + String.format("%.2f", nextDollarValue));
                     customValue = nextDollarValue - value;
                     System.out.println("Customer Change: " + String.format("%.2f", customValue));
+                    clientSideVj.sendLogAsync("Please Pay: " + String.format("$%.2f", value));
+                    clientSideVj.sendLogAsync("Customer Change: " + String.format("$%.2f", customValue));
                     return customValue;
                 } catch (Exception e) {
                     System.err.println("Error in customerChange case: " + e.getMessage());
                     return 0.00;
                 }
+            default:
+                switch (labelName){
+                    case "customerChangeNextDollar":
+                        dollarConversion = new DollarConversion();
+                        nextDollarValue = dollarConversion.getNextDollarValue(value);
+                        System.out.println("Next Dollar Value: " + String.format("%.2f", nextDollarValue));
+                        customValue = nextDollarValue - value;
+                        System.out.println("Customer Change: " + String.format("%.2f", customValue));
+                        clientSideVj.sendLogAsync("Please Pay: " + String.format("$%.2f", value));
+                        clientSideVj.sendLogAsync("Customer Change: " + String.format("$%.2f", customValue));
+                        return customValue;
+                    case "customerChangeExactDollar":
+                        System.out.println("Exact Dollar Value: " + String.format("%.2f", value));
+                        customValue = value - value;
+                        System.out.println("Customer Change: " + String.format("%.2f", customValue));
+                        clientSideVj.sendLogAsync("Please Pay: " + String.format("$%.2f", value));
+                        clientSideVj.sendLogAsync("Customer Change: " + String.format("$%.2f", customValue));
+                        return customValue;
+                }
+                break;
         }
         return 0.00;
     }
