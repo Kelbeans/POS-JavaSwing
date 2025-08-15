@@ -35,6 +35,9 @@ public class Pane {
     private HashMap<String, JLabel> itemLabels = new HashMap<>();
     private TransactionIdGenerator transactionIdGenerator;
     private String transactionId;
+    public String discountType;
+    public String discountPercent;
+
 
     private SocketConfig clientSideVj;
 
@@ -48,6 +51,7 @@ public class Pane {
                 "Items Scanned--------------Price-----------Quantity"));
 
         prices = new ArrayList<>();
+        //clientSideVj = new SocketConfig("192.168.8.125", 1234); SEAN SOCKET
         clientSideVj = new SocketConfig("localhost", 8080);
         clientSideVj.sendLogAsync("Mock Basic Point of Sales System is Online!");
 
@@ -160,9 +164,33 @@ public class Pane {
                 String.format("Computed Tax 7%%: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("computedTax",discountedTotalAmount))
         );
 
-        discountLabel.setText(
-                String.format("Discount 20%%: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("discount", discounGet))
-        );
+        if (discountType != null && !discountType.isEmpty()){
+            if (discountType.equalsIgnoreCase("SENIOR")) {
+                discountLabel.setText(
+                        String.format("Discount (%s - %s): \t\t\t\t\t\t\t\t\t\t\t$%.2f",
+                                discountType,
+                                discountPercent,
+                                customLabel.getDouble("discount", discounGet))
+                );
+            } else if (discountType.equalsIgnoreCase("COUPON")) {
+                discountLabel.setText(
+                        String.format("Discount (%s - %s): \t\t\t\t\t\t\t\t\t\t$%.2f",
+                                discountType,
+                                discountPercent,
+                                customLabel.getDouble("discount", discounGet))
+                );
+            } else {
+                discountLabel.setText(
+                        String.format("Discount (%s - %s): \t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f",
+                                discountType,
+                                discountPercent,
+                                customLabel.getDouble("discount", discounGet))
+                );
+            }
+        }
+
+
+
 
         totalWithTaxLabel.setText(
                 String.format("Discounted Total: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f", customLabel.getDouble("totalWithTax", discountedTotalAmount)));
@@ -246,34 +274,31 @@ public class Pane {
      */
 
     public void actionButtons(String itemName){
+            if (!itemQuantityHashMap.isEmpty()) {
+                if (itemName.equalsIgnoreCase("Next Dollar") || itemName.equalsIgnoreCase("Exact Dollar")) {
+                    transactionIdGenerator = new TransactionIdGenerator();
+                    transactionId = transactionIdGenerator.generateTransactionId();
+                    nextDollarButtonIsClicked(true, itemName, totalAfterTax);
+                }
+                System.out.println("Item Quantity HashMap: " + itemQuantityHashMap);
 
-        if (!itemQuantityHashMap.isEmpty()) {
-            if (itemName.equalsIgnoreCase("Next Dollar") || itemName.equalsIgnoreCase("Exact Dollar")) {
-                transactionIdGenerator = new TransactionIdGenerator();
-                transactionId = transactionIdGenerator.generateTransactionId();
-                nextDollarButtonIsClicked(true, itemName, totalAfterTax);
+                if (itemName.equalsIgnoreCase("Void Transaction")) {
+                    voidTransact(true);
+                }
+
+                if (itemName.equalsIgnoreCase("Void Item")) {
+                    voidItemTransaction(true);
+                }
+
+                if (itemName.equalsIgnoreCase("Quantity Change")) {
+                    changeItemQuantity(true, "Juice", 1);
+                }
+            } else {
+                popUpModal = new Modal();
+                popUpModal.displayModal("Empty Cart", "No items in the cart. Please add items to proceed.", "OK", "Cancel");
+                clientSideVj.sendLogAsync("Item Quantity HashMap is Empty");
+                System.out.println("Item Quantity HashMap is Empty");
             }
-            System.out.println("Item Quantity HashMap: " + itemQuantityHashMap);
-        } else {
-            popUpModal = new Modal();
-            popUpModal.displayModal("Empty Cart", "No items in the cart. Please add items to proceed.", "OK", "Cancel");
-            clientSideVj.sendLogAsync("Item Quantity HashMap is Empty");
-            System.out.println("Item Quantity HashMap is Empty");
-            return;
-        }
-
-        if(itemName.equalsIgnoreCase("Void Transaction")){
-            voidTransact(true);
-        }
-
-        if (itemName.equalsIgnoreCase("Void Item")) {
-            voidItemTransaction(true);
-        }
-
-        if (itemName.equalsIgnoreCase("Quantity Change")) {
-            changeItemQuantity(true, "Juice", 1);
-        }
-
     }
 
     /*
@@ -282,7 +307,7 @@ public class Pane {
     */
     public void nextDollarButtonIsClicked(boolean showModal, String buttonName, Double value){
 
-        discountApi();
+        popUpModal = new Modal();
 
         DollarConversion dollarConversion = new DollarConversion();
 
@@ -290,24 +315,85 @@ public class Pane {
 
         clientSideVj.sendLogAsync("Total With Tax: " + totalWithTax);
 
-        popUpModal = new Modal();
-
         if (showModal) {
-            String userChoice = popUpModal.displayModal("Payment Transaction Confirmation",
-                    "Select a Payment Method",
-                    "Cash Payment",
-                    "Credit/Debit");
+            String discountChoice = popUpModal.displayInputModal("Discount",
+                    "Select a Type of Discount",
+                    "Enter Discount Coupon Value",
+                    "Proceed",
+                    "Cancel");
 
-            if ("Cash Payment".equals(userChoice)) {
-                clientSideVj.sendLogAsync("Cash Payment is Selected");
-                System.out.println("Cash Payment is Selected");
-            } else {
-                System.out.println("Credit/Debit Payment is Selected");
-                clientSideVj.sendLogAsync("Credit/Debit Payment is Selected");
+            // Check if user cancelled
+            if ("Cancel".equals(discountChoice) || discountChoice == null) {
+                System.out.println("Discount Cancelled");
+                clientSideVj.sendLogAsync("Discount Cancelled");
+                return;
             }
-            clientSideVj.sendLogAsync("Please pay a total of: " + String.format("$%.2f", value));
-            System.out.println("Please pay a total of: " + String.format("$%.2f", value));
+
+            // Process discount selection
+            if (discountChoice != null && !discountChoice.equals("Proceed")) {
+                discountType = discountChoice;
+                // Parse the discount choice
+                String couponCode = null;
+
+                if (discountChoice.startsWith("COUPON:")) {
+                    discountType = "COUPON";
+                    couponCode = discountChoice.substring(7); // Extract coupon code after "COUPON:"
+                    System.out.println("Coupon discount selected with code: " + couponCode);
+                    clientSideVj.sendLogAsync("Coupon discount selected with code: " + couponCode);
+                } else {
+                    discountType = discountChoice; // PWD or SENIOR
+                    couponCode = discountChoice; // For PWD/SENIOR, the discount value is the type itself
+                    System.out.println(discountType + " discount selected");
+                    clientSideVj.sendLogAsync(discountType + " discount selected");
+                }
+
+                // Call discount API with the selected type
+                discountApi(discountType, couponCode);
+
+                // Proceed to payment confirmation
+                String paymentChoice = popUpModal.displayModal("Payment Transaction Confirmation",
+                        "Select a Payment Method",
+                        "Cash Payment",
+                        "Credit/Debit");
+
+                if ("Cash Payment".equals(paymentChoice)) {
+                    clientSideVj.sendLogAsync("Cash Payment is Selected");
+                    System.out.println("Cash Payment is Selected");
+                } else if ("Credit/Debit".equals(paymentChoice)) {
+                    System.out.println("Credit/Debit Payment is Selected");
+                    clientSideVj.sendLogAsync("Credit/Debit Payment is Selected");
+                } else {
+                    System.out.println("Payment Cancelled");
+                    clientSideVj.sendLogAsync("Payment Cancelled");
+                    return;
+                }
+
+                clientSideVj.sendLogAsync("Please pay a total of: " + String.format("$%.2f", value));
+                System.out.println("Please pay a total of: " + String.format("$%.2f", value));
+
+            } else {
+                System.out.println("No discount type selected");
+                clientSideVj.sendLogAsync("No discount type selected");
+                return;
+            }
         }
+
+//        if (showModal) {
+//            String userChoice = popUpModal.displayModal("Payment Transaction Confirmation",
+//                    "Select a Payment Method",
+//                    "Cash Payment",
+//                    "Credit/Debit");
+//
+//            if ("Cash Payment".equals(userChoice)) {
+//                clientSideVj.sendLogAsync("Cash Payment is Selected");
+//                System.out.println("Cash Payment is Selected");
+//            } else {
+//                System.out.println("Credit/Debit Payment is Selected");
+//                clientSideVj.sendLogAsync("Credit/Debit Payment is Selected");
+//            }
+//            clientSideVj.sendLogAsync("Please pay a total of: " + String.format("$%.2f", value));
+//            System.out.println("Please pay a total of: " + String.format("$%.2f", value));
+//        }
 
 
         layeredPane.setBounds(600,1,400,660);
@@ -364,11 +450,11 @@ public class Pane {
                     "Yes",
                     "No");
 
-            // Only proceed with void if user clicked "Yes"
+
             if (!"Yes".equals(userChoice)) {
                 System.out.println("Void Transaction Cancelled");
                 clientSideVj.sendLogAsync("Void Transaction Cancelled");
-                return; // Exit method without voiding if user clicked "No" or closed dialog
+                return;
             }
             System.out.println("Void Transaction Confirmed");
             clientSideVj.sendLogAsync("Void Transaction Confirmed");
@@ -396,7 +482,7 @@ public class Pane {
         layeredPane.repaint();
     }
 
-    // Fix the hashMap issue with quantity. By in case of using a  FUNCTION_SCOPED currentQuantity variable we move it to CLASS_LEVEL.
+    // Fix the hashMap issue with quantity. By in case of using a FUNCTION_SCOPED currentQuantity variable we move it to CLASS_LEVEL.
     public HashMap<String, Integer> quantityPerItem(String itemName) {
         if (!itemName.equalsIgnoreCase("Next Dollar")
                 && !itemName.equalsIgnoreCase("Exact Dollar")
@@ -426,22 +512,24 @@ public class Pane {
                     "Proceed",
                     "Cancel");
 
-            // Check if userChoice is "Cancel" or null (dialog closed)
             if ("Cancel".equals(userChoice) || userChoice == null) {
                 System.out.println("Voiding Item: is cancelled");
+                clientSideVj.sendLogAsync("Voiding Item: is cancelled");
                 return; // Exit method without voiding
             }
 
-            // If userChoice is not "Proceed", it must be the item name
+
             String itemName = "Proceed".equals(userChoice) ? null : userChoice;
 
-            // If no valid item name was provided, print message and return
+
             if (itemName == null || itemName.trim().isEmpty()) {
                 System.out.println("No valid item name provided for voiding");
+                clientSideVj.sendLogAsync("No valid item name provided for voiding");
                 return;
             }
 
             System.out.println("Item to void: " + itemName);
+            clientSideVj.sendLogAsync("Item to void: " + itemName);
             voidItemConfirmation(showModal, itemName);
         }
     }
@@ -457,12 +545,14 @@ public class Pane {
             // Only proceed with void if user clicked "Yes"
             if (!"Yes".equals(userChoice)) {
                 System.out.println("Voiding Item: " + (itemName != null ? itemName : "Unknown Item") + " is cancelled");
+                clientSideVj.sendLogAsync("Voiding Item: " + (itemName != null ? itemName : "Unknown Item") + " is cancelled");
                 return; // Exit method without voiding
             }
             System.out.println("Item: " + (itemName != null ? itemName : "Unknown Item") + " is voided");
+            clientSideVj.sendLogAsync("Item: " + (itemName != null ? itemName : "Unknown Item") + " is voided");
         }
 
-        // Remove item from collections and UI (with case-insensitive search)
+        // Remove item from collections and UI
         if (itemName != null) {
 
             if (itemName != null && itemLabels.containsKey(itemName)) {
@@ -476,13 +566,15 @@ public class Pane {
                 // Debug: Check prices before removal
                 System.out.println("DEBUG: Prices before removal: " + prices);
                 System.out.println("DEBUG: Total before removal: $" + calculateTotal());
+                clientSideVj.sendLogAsync("DEBUG: Prices before removal: " + prices);
+                clientSideVj.sendLogAsync("DEBUG: Total before removal: $" + calculateTotal());
 
-                // Alternative removal method if the above doesn't work:
-                 Double priceToRemove = Double.valueOf(itemPrice);
-                 prices.removeIf(price -> price.equals(priceToRemove));
+                Double priceToRemove = Double.valueOf(itemPrice);
+                prices.removeIf(price -> price.equals(priceToRemove));
 
                 // Debug: Check prices after removal
                 System.out.println("DEBUG: Prices after removal: " + prices);
+                clientSideVj.sendLogAsync("DEBUG: Prices after removal: " + prices);
 
                 // Remove from UI
                 layeredPane.remove(itemComponent);
@@ -502,9 +594,11 @@ public class Pane {
                 updateTotalDisplay();
 
                 System.out.println("Item '" + itemName + "' voided. New total: $" + total);
+                clientSideVj.sendLogAsync("Item '" + itemName + "' voided. New total: $" + total);
 
             } else {
                 System.out.println("Item '" + itemName + "' not found in the current transaction");
+                clientSideVj.sendLogAsync("Item '" + itemName + "' not found in the current transaction");
             }
         }
     }
@@ -517,7 +611,7 @@ public class Pane {
         );
     }
 
-    // Helper method to reposition all item labels and eliminate gaps
+
     private void repositionItemLabels() {
         int currentY = 25; // Reset to starting position
 
@@ -527,7 +621,13 @@ public class Pane {
             label.setBounds(10, currentY, 380, 20);
             currentY += 25; // Move to next position
         }
+        layeredPane.remove(nextTotalLabel);
+        layeredPane.remove(totalWithTaxLabel);
+        layeredPane.remove(computedTaxLabel);
+        layeredPane.remove(discountLabel);
+        layeredPane.remove(customerChangeLabel);
 
+        layeredPane.setBounds(600,1,400,555);
         // Update labelY to the next available position
         labelY = currentY;
     }
@@ -537,12 +637,13 @@ public class Pane {
 
         if (showModal) {
             String userChoice = itemQuantityDialog.displayQuantityModal("Quantity Change Confirmation",
-                    "Enter an Item to Change Quantity",
+                    "Enter an Item name and its Quantity to remove",
                     "Proceed", "Cancel");
 
             // Check if user cancelled
             if ("Cancel".equals(userChoice)) {
                 System.out.println("Quantity change cancelled");
+                clientSideVj.sendLogAsync("Quantity change cancelled");
                 return;
             }
         }
@@ -550,6 +651,7 @@ public class Pane {
         String fetchInputtedValue = itemQuantityDialog.returnItemValues();
         itemQuantityDialog.processItemValues(fetchInputtedValue);
         System.out.println("Item to change quantity: " + fetchInputtedValue);
+        clientSideVj.sendLogAsync("Item to change quantity: " + fetchInputtedValue);
 
         if (itemName != null && itemLabels.containsKey(itemName)) {
             int currentQuantity = itemQuantityHashMap.getOrDefault(itemName, 1);
@@ -557,6 +659,8 @@ public class Pane {
 
             System.out.println("Current quantity for " + itemName + ": " + currentQuantity);
             System.out.println("New quantity: " + newQuantity);
+            clientSideVj.sendLogAsync("Current quantity for " + itemName + ": " + currentQuantity);
+            clientSideVj.sendLogAsync("New quantity: " + newQuantity);
 
             if (newQuantity <= 0) {
                 // Remove item completely when quantity is 0 or less
@@ -567,10 +671,11 @@ public class Pane {
             }
         } else {
             System.out.println("Item '" + fetchInputtedValue + "' not found in the current transaction");
+            clientSideVj.sendLogAsync("Item '" + fetchInputtedValue + "' not found in the current transaction");
         }
     }
 
-    // Helper method to completely remove an item
+
     private void removeItemCompletely(String itemName) {
         System.out.println("Removing item completely: " + itemName);
 
@@ -601,13 +706,22 @@ public class Pane {
         customLabel.getDouble("totalBeforeTax", total);
         updateTotalDisplay();
 
+        layeredPane.remove(nextTotalLabel);
+        layeredPane.remove(totalWithTaxLabel);
+        layeredPane.remove(computedTaxLabel);
+        layeredPane.remove(discountLabel);
+        layeredPane.remove(customerChangeLabel);
+
+        layeredPane.setBounds(600,1,400,555);
+
         layeredPane.revalidate();
         layeredPane.repaint();
 
         System.out.println("Item '" + itemName + "' completely removed. New total: $" + total);
+        clientSideVj.sendLogAsync("Item '" + itemName + "' completely removed. New total: $" + total);
     }
 
-    // Helper method to update item quantity
+
     private void updateItemQuantity(String itemName, int newQuantity) {
         int currentQuantity = itemQuantityHashMap.getOrDefault(itemName, 1);
         double itemPriceValue = itemPrice(itemName);
@@ -621,6 +735,7 @@ public class Pane {
                 prices.add(itemPriceValue);
             }
             System.out.println("Added " + quantityDifference + " more of " + itemName);
+            clientSideVj.sendLogAsync("Added " + quantityDifference + " more of " + itemName);
         } else if (quantityDifference < 0) {
             // Removing items - remove prices from list
             int pricesToRemove = Math.abs(quantityDifference);
@@ -629,6 +744,7 @@ public class Pane {
                 prices.remove(priceToRemove);
             }
             System.out.println("Removed " + pricesToRemove + " of " + itemName);
+            clientSideVj.sendLogAsync("Removed " + pricesToRemove + " of " + itemName);
         }
 
         // Update quantity in HashMap
@@ -648,45 +764,60 @@ public class Pane {
         customLabel.getDouble("totalBeforeTax", total);
         updateTotalDisplay();
 
+        layeredPane.remove(nextTotalLabel);
+        layeredPane.remove(totalWithTaxLabel);
+        layeredPane.remove(computedTaxLabel);
+        layeredPane.remove(discountLabel);
+        layeredPane.remove(customerChangeLabel);
+
+        layeredPane.setBounds(600,1,400,555);
+
         layeredPane.revalidate();
         layeredPane.repaint();
 
         System.out.println("Updated " + itemName + " quantity to " + newQuantity + ". New total: $" + total);
+        clientSideVj.sendLogAsync("Updated " + itemName + " quantity to " + newQuantity + ". New total: $" + total);
     }
 
-    public ApiResponse discountApi(){
-
+    // Enhanced discountApi method to handle different discount types
+    public ApiResponse discountApi(String discountType, String discount) {
         ApiConfig apiConfig = new ApiConfig();
-        clientSideVj.sendLogAsync("Discount API is being called");
-        // Fixed JSON request to match API expectations
+        clientSideVj.sendLogAsync("Discount API is being called for type: " + discountType);
+
+        // Build JSON request body - discount value comes from user input
         String jsonRequest = String.format(
-                "{\"transactionId\":\"%s\", \"totalAmountBeforeTax\":%.2f}",
-                transactionId,
-                total
+                "{\"transactionId\":\"%s\", \"discount\":\"%s\", \"totalAmountBeforeTax\":%.2f}",
+                transactionId, discount, total
         );
 
-        clientSideVj.sendLogAsync("API Parameters" + jsonRequest);
-        ApiResponse discountResponse = apiConfig.callDiscountApi(jsonRequest);
+        clientSideVj.sendLogAsync("Discount Type (URL param): " + discountType);
+        clientSideVj.sendLogAsync("API Parameters: " + jsonRequest);
+
+        // For COUPON type, pass the coupon code as URL parameter
+        String couponCodeParam = "COUPON".equals(discountType) ? discount : null;
+
+        // Call API with query parameters
+        ApiResponse discountResponse = apiConfig.callDiscountApi(jsonRequest, discountType, couponCodeParam);
+
         try {
-            // Disassemble the response data to different variables
+            // Process the response
             String responseTransactionId = discountResponse.getTransactionId();
-            String discountPercentage = discountResponse.getDiscount();
+            discountPercent = discountResponse.getDiscount();
             Double discountAmount = discountResponse.getAmountDiscounted();
             Double finalTotal = discountResponse.getTotalAmountBeforeTax();
 
             discounGet = discountAmount;
-
             discountedTotalAmount = finalTotal;
 
-            clientSideVj.sendLogAsync("API Response" + discountResponse);
 
-            System.out.println("Discount Response: " + responseTransactionId + " " + discountPercentage + " " + discountAmount + " " + finalTotal);
+            clientSideVj.sendLogAsync("API Response: " + discountResponse);
+            System.out.println("Discount Response: " + responseTransactionId + " " + discountPercent + " " + discountAmount + " " + finalTotal);
 
         } catch (Exception e) {
-
-            clientSideVj.sendLogAsync("Failed to get discount" + e.getMessage());
+            clientSideVj.sendLogAsync("Failed to get discount: " + e.getMessage());
             System.err.println("Failed to get discount: " + e.getMessage());
         }
+
         return discountResponse;
     }
 

@@ -3,8 +3,9 @@ package common.Dto;
 public class ApiResponse {
     private String transactionId;
     private String discount;
-    private Double amountDiscounted;
-    private Double totalAmountBeforeTax;
+    private String discountType;
+    private double amountDiscounted;
+    private double totalAmountBeforeTax;
 
     // Default constructor (required for Jackson)
     public ApiResponse() {}
@@ -12,6 +13,10 @@ public class ApiResponse {
     // Getters
     public String getTransactionId() {
         return transactionId;
+    }
+
+    public String getDiscountType() {
+        return discountType;
     }
 
     public String getDiscount() {
@@ -31,6 +36,10 @@ public class ApiResponse {
         this.transactionId = transactionId;
     }
 
+    public void setDiscountType(String discountType) {
+        this.discountType = discountType;
+    }
+
     public void setDiscount(String discount) {
         this.discount = discount;
     }
@@ -45,11 +54,12 @@ public class ApiResponse {
 
     @Override
     public String toString() {
-        return "ApiResponse{" +
-                "transactionId='" + transactionId + '\'' +
-                ", discount='" + discount + '\'' +
-                ", amountDiscounted=" + amountDiscounted +
-                ", totalAmountBeforeTax=" + totalAmountBeforeTax +
+        return "ApiResponse{" + '\n' +
+                "transactionId='" + transactionId + '\n' +
+                ", discountType='" + discountType + '\n' +
+                ", discount='" + discount + '\n' +
+                ", amountDiscounted=" + amountDiscounted + '\n'+
+                ", totalAmountBeforeTax=" + totalAmountBeforeTax + '\n'+
                 '}';
     }
 }

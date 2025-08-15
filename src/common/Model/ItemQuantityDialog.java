@@ -19,9 +19,10 @@ public class ItemQuantityDialog {
         quantityDialog.setModal(true); // Make it modal
         quantityDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         quantityDialog.setLayout(new BorderLayout());
+        quantityDialog.setLocationRelativeTo(null);
 
         // Message label
-        JLabel messageLabel = new JLabel("Enter an Item Quantity to Edit", JLabel.CENTER);
+        JLabel messageLabel = new JLabel(message, JLabel.CENTER);
         messageLabel.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
         quantityDialog.add(messageLabel, BorderLayout.CENTER);
 

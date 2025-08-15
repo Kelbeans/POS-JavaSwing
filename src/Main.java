@@ -17,7 +17,6 @@ public class Main {
 //            throw new RuntimeException(e);
 //        }
 
-
         System.out.println("******** Items in the Basket **********");
         /*
             *Test Components
@@ -29,6 +28,7 @@ public class Main {
         mainWindow.setTitle("Basic Point of Sale System");
         mainWindow.setSize(1000,1000);
         mainWindow.setLayout(null);
+        mainWindow.setLocationRelativeTo(null);
 
         Pane pane = new Pane();
 

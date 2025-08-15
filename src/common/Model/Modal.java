@@ -22,6 +22,7 @@ public class Modal {
         dialog.setModal(true); // Make it modal
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setLayout(new BorderLayout());
+        dialog.setLocationRelativeTo(null);
 
         // Message label
         JLabel messageLabel = new JLabel(message, JLabel.CENTER);
@@ -71,6 +72,7 @@ public class Modal {
         dialog.setModal(true); // Make it modal
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setLayout(new BorderLayout());
+        dialog.setLocationRelativeTo(null);
 
         // Create main panel for message and input
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -88,6 +90,9 @@ public class Modal {
                 BorderFactory.createLineBorder(Color.GRAY),
                 BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
+
+        // Set initial placeholder appearance
+        inputField.setForeground(Color.GRAY);
 
         // Add focus listener to clear placeholder text
         inputField.addFocusListener(new FocusListener() {
@@ -108,10 +113,61 @@ public class Modal {
             }
         });
 
-        // Set initial placeholder appearance
-        inputField.setForeground(Color.GRAY);
+        if (modalTitle.equalsIgnoreCase("Discount")) {
+            // Create discount-specific UI
+            String[] discountType = {"PWD", "SENIOR", "COUPON"};
+            JComboBox<String> discountTypeComboBox = new JComboBox<>(discountType);
+            discountTypeComboBox.setSelectedIndex(2); // Default to COUPON
+            discountTypeComboBox.setPreferredSize(new Dimension(150, 30));
 
-        mainPanel.add(inputField, BorderLayout.CENTER);
+            // Create a panel to hold both combo box and input field
+            JPanel discountPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+
+            // Add combo box label
+            JLabel comboLabel = new JLabel("Discount Type:");
+            discountPanel.add(comboLabel);
+            discountPanel.add(discountTypeComboBox);
+
+            // Initially hide input field for non-COUPON selections
+            inputField.setPreferredSize(new Dimension(200, 30));
+            inputField.setVisible(true); // Show by default since COUPON is selected
+
+            // Add input field label and field
+            JLabel inputLabel = new JLabel("Coupon Code:");
+            inputLabel.setVisible(true); // Show by default since COUPON is selected
+            discountPanel.add(inputLabel);
+            discountPanel.add(inputField);
+
+            // Add action listener to combo box
+            discountTypeComboBox.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    String selectedType = (String) discountTypeComboBox.getSelectedItem();
+                    boolean showInputField = "COUPON".equals(selectedType);
+
+                    inputField.setVisible(showInputField);
+                    inputLabel.setVisible(showInputField);
+
+                    if (showInputField) {
+                        inputField.setText("Enter coupon code");
+                        inputField.setForeground(Color.GRAY);
+                    } else {
+                        inputValue[0] = selectedType; // Store the discount type
+                    }
+
+                    // Refresh the panel
+                    discountPanel.revalidate();
+                    discountPanel.repaint();
+                }
+            });
+
+            mainPanel.add(discountPanel, BorderLayout.CENTER);
+
+        } else {
+            // Regular input modal - just add the input field
+            mainPanel.add(inputField, BorderLayout.CENTER);
+        }
+
         dialog.add(mainPanel, BorderLayout.CENTER);
 
         // Button panel
@@ -122,13 +178,52 @@ public class Modal {
         button1.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String text = inputField.getText();
-                // Don't return placeholder text as input
-                if (!text.equals(placeholderText) && !text.trim().isEmpty()) {
-                    inputValue[0] = text;
+                if (modalTitle.equalsIgnoreCase("Discount")) {
+                    // Handle discount modal
+                    JComboBox<String> comboBox = null;
+
+                    // Find the combo box in the dialog
+                    for (Component comp : dialog.getContentPane().getComponents()) {
+                        if (comp instanceof JPanel) {
+                            for (Component subComp : ((JPanel) comp).getComponents()) {
+                                if (subComp instanceof JPanel) {
+                                    for (Component innerComp : ((JPanel) subComp).getComponents()) {
+                                        if (innerComp instanceof JComboBox) {
+                                            comboBox = (JComboBox<String>) innerComp;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (comboBox != null) {
+                        String selectedType = (String) comboBox.getSelectedItem();
+
+                        if ("COUPON".equals(selectedType)) {
+                            // For COUPON, get the input field value
+                            String couponCode = inputField.getText();
+                            if (!couponCode.equals("Enter coupon code") && !couponCode.trim().isEmpty()) {
+                                inputValue[0] = "COUPON:" + couponCode;
+                            } else {
+                                inputValue[0] = "COUPON:";
+                            }
+                        } else {
+                            // For PWD/SENIOR, just return the type
+                            inputValue[0] = selectedType;
+                        }
+                    }
                     userChoice = button1Text;
                 } else {
-                    userChoice = button1Text;
+                    // Handle regular modal
+                    String text = inputField.getText();
+                    if (!text.equals(placeholderText) && !text.trim().isEmpty()) {
+                        inputValue[0] = text;
+                        userChoice = button1Text;
+                    } else {
+                        userChoice = button1Text;
+                    }
                 }
                 dialog.dispose();
             }
