@@ -2,8 +2,8 @@ package config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import common.Dto.ApiResponse;
-import common.Model.Modal;
+import common.dto.ApiResponse;
+import common.components.Modal;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -13,7 +13,8 @@ import java.time.Duration;
 
 public class ApiConfig {
     private static final HttpClient client = HttpClient.newHttpClient();
-    private static final String BASE_DISCOUNT_API_URL = "http://localhost:8084/api/v1/discount/get-discount";
+    // private static final String BASE_DISCOUNT_API_URL = "http://ds-elb-8084-223253500.ap-southeast-1.elb.amazonaws.com:8084/api/v1/discount"; // AWS ELB URL PORT 8084
+    private static final String BASE_DISCOUNT_API_URL = "http://ds-lb-default-port-421948242.ap-southeast-1.elb.amazonaws.com/api/v1/discount"; // AWS ELB URL PORT 8084
     private Modal popUpModal;
 
     public ApiResponse callDiscountApi(String jsonRequestBody, String discountType, String couponCode) {
@@ -74,4 +75,6 @@ public class ApiConfig {
         // Default to no discount type - you might want to handle this differently
         return callDiscountApi(jsonRequestBody, "NONE", null);
     }
+
+
 }

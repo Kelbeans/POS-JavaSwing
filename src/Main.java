@@ -1,125 +1,110 @@
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-import common.Model.Button;
-import common.Model.Pane;
+import common.components.Button;
+import common.components.Pane;
 
 import java.awt.*;
 import java.util.ArrayList;
 import javax.swing.*;
+
 public class Main {
+    private static final int WINDOW_WIDTH = 1000;
+    private static final int WINDOW_HEIGHT = 1000;
+    private static final String WINDOW_TITLE = "Basic Point of Sale System";
+
+    // Button positions
+    private static final int[][] POPULAR_ITEM_POSITIONS = {
+            {0, 20}, {0, 220}, {200, 20}, {400, 20}, {200, 220}, {400, 220}
+    };
+
+    private static final int[][] ACTION_BUTTON_POSITIONS = {
+            {0, 440}, {200, 440}, {400, 440}, {0, 640}, {200, 640}
+    };
+
+    // Item names
+    private static final String[] POPULAR_ITEMS = {
+            "Coffee", "Hotdog", "Donut", "Ice Cream", "Juice", "Milk Shake"
+    };
+
+    private static final String[] ACTION_ITEMS = {
+            "Exact Dollar", "Next Dollar", "Void Transaction", "Void Item", "Quantity Change"
+    };
 
     public static void main(String[] args) throws Exception {
-
-//        try (Connection conn = DatabaseConfig.getConnection()) {
-//
-//            System.out.println("Connected to H2!");
-//        } catch (SQLException e) {
-//            throw new RuntimeException(e);
-//        }
-
         System.out.println("******** Items in the Basket **********");
-        /*
-            *Test Components
-        */
-        // Main Frame
-        JFrame mainWindow = new JFrame();
 
-        // Main window styling
-        mainWindow.setTitle("Basic Point of Sale System");
-        mainWindow.setSize(1000,1000);
-        mainWindow.setLayout(null);
-        mainWindow.setLocationRelativeTo(null);
-
+        // Initialize main components
+        JFrame mainWindow = createMainWindow();
         Pane pane = new Pane();
 
-        JLabel popularItemsLabel = new JLabel("Popular Items");
-        popularItemsLabel.setBounds(250,0,380,20);
-        popularItemsLabel.setFont(new Font("Monospaced", Font.PLAIN, 15));
+        // Add labels
+        addLabels(mainWindow);
 
-        JLabel actionButtonLabel = new JLabel("Action Buttons");
-        actionButtonLabel.setBounds(250, 420, 380, 20);
-        actionButtonLabel.setFont(new Font("Monospaced", Font.PLAIN, 15));
+        // Add popular item buttons
+        addPopularItemButtons(mainWindow, pane);
 
+        // Add action buttons
+        addActionButtons(mainWindow, pane);
 
-        //Button Components
-        Button coffee = new Button(pane);
-        ArrayList<Integer> coffeeButtonStyle = new ArrayList<>();
-        coffeeButtonStyle.add(0);
-        coffeeButtonStyle.add(20);
-
-        Button hotdog = new Button(pane);
-        ArrayList<Integer> hotdogButton = new ArrayList<>();
-        hotdogButton.add(0);
-        hotdogButton.add(220);
-
-        Button donut = new Button(pane);
-        ArrayList<Integer> donutButton = new ArrayList<>();
-        donutButton.add(200);
-        donutButton.add(20);
-        Button iceCream = new Button(pane);
-        ArrayList<Integer> iceCreamButton = new ArrayList<>();
-        iceCreamButton.add(400);
-        iceCreamButton.add(20);
-
-        Button juice = new Button(pane);
-        ArrayList<Integer> juiceButton = new ArrayList<>();
-        juiceButton.add(200);
-        juiceButton.add(220);
-
-        Button milkShake = new Button(pane);
-        ArrayList<Integer> milkShakeButton = new ArrayList<>();
-        milkShakeButton.add(400);
-        milkShakeButton.add(220);
-
-        Button exactDollar = new Button(pane);
-        ArrayList<Integer> exactDollarButton = new ArrayList<>();
-        exactDollarButton.add(0);
-        exactDollarButton.add(440);
-
-        Button nextDollar = new Button(pane);
-        ArrayList<Integer> nextDollarButton = new ArrayList<>();
-        nextDollarButton.add(200);
-        nextDollarButton.add(440);
-
-        Button voidTransaction = new Button(pane);
-        ArrayList<Integer> voidTransactionButton = new ArrayList<>();
-        voidTransactionButton.add(400);
-        voidTransactionButton.add(440);
-
-        Button voidItem = new Button(pane);
-        ArrayList<Integer> voidItemButton = new ArrayList<>();
-        voidItemButton.add(0);
-        voidItemButton.add(640);
-
-        Button quantityChange = new Button(pane);
-        ArrayList<Integer> quantityChangeButton = new ArrayList<>();
-        quantityChangeButton.add(200);
-        quantityChangeButton.add(640);
-
-
-        /* Adding Components to the Main Window */
-        mainWindow.add(popularItemsLabel);
-        mainWindow.add(actionButtonLabel);
-        mainWindow.add(coffee.testButtonPanel("Coffee", coffeeButtonStyle));
-        mainWindow.add(hotdog.testButtonPanel("Hotdog", hotdogButton));
-        mainWindow.add(donut.testButtonPanel("Donut", donutButton));
-        mainWindow.add(iceCream.testButtonPanel("Ice Cream", iceCreamButton));
-        mainWindow.add(juice.testButtonPanel("Juice", juiceButton));
-        mainWindow.add(milkShake.testButtonPanel("Milk Shake", milkShakeButton));
-        mainWindow.add(exactDollar.testButtonPanel("Exact Dollar", exactDollarButton));
-        mainWindow.add(nextDollar.testButtonPanel("Next Dollar", nextDollarButton));
-        mainWindow.add(voidTransaction.testButtonPanel("Void Transaction", voidTransactionButton));
-        mainWindow.add(voidItem.testButtonPanel("Void Item", voidItemButton));
-        mainWindow.add(quantityChange.testButtonPanel("Quantity Change", quantityChangeButton));
+        // Add main pane
         mainWindow.add(pane.displayPane());
 
-        // Make the Main Window Visible to Screen.
-        mainWindow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        mainWindow.setVisible(true);
-
+        // Show window and start barcode scanning
+        showWindow(mainWindow);
         pane.scanBarcode();
+    }
 
+    private static JFrame createMainWindow() {
+        JFrame mainWindow = new JFrame();
+        mainWindow.setTitle(WINDOW_TITLE);
+        mainWindow.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+        mainWindow.setLayout(null);
+        mainWindow.setLocationRelativeTo(null);
+        mainWindow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        return mainWindow;
+    }
+
+    private static void addLabels(JFrame mainWindow) {
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 15);
+        JLabel popularItemsLabel = createLabel("Popular Items", 250, 0, labelFont);
+        JLabel actionButtonLabel = createLabel("Action Buttons", 250, 420, labelFont);
+
+        mainWindow.add(popularItemsLabel);
+        mainWindow.add(actionButtonLabel);
     }
 
 
+    private static JLabel createLabel(String text, int x, int y, Font font) {
+        JLabel label = new JLabel(text);
+        label.setBounds(x, y, 380, 20);
+        label.setFont(font);
+        return label;
+    }
+
+    private static void addPopularItemButtons(JFrame mainWindow, Pane pane) {
+        for (int i = 0; i < POPULAR_ITEMS.length; i++) {
+            Button button = new Button(pane);
+            ArrayList<Integer> position = createPosition(POPULAR_ITEM_POSITIONS[i]);
+            mainWindow.add(button.testButtonPanel(POPULAR_ITEMS[i], position));
+        }
+    }
+
+    private static void addActionButtons(JFrame mainWindow, Pane pane) {
+        for (int i = 0; i < ACTION_ITEMS.length; i++) {
+            Button button = new Button(pane);
+            ArrayList<Integer> position = createPosition(ACTION_BUTTON_POSITIONS[i]);
+            mainWindow.add(button.testButtonPanel(ACTION_ITEMS[i], position));
+        }
+    }
+
+    private static ArrayList<Integer> createPosition(int[] coords) {
+        ArrayList<Integer> position = new ArrayList<>();
+        position.add(coords[0]);
+        position.add(coords[1]);
+        return position;
+    }
+
+    private static void showWindow(JFrame mainWindow) {
+        mainWindow.setVisible(true);
+    }
 }
