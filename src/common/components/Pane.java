@@ -10,45 +10,53 @@ import config.SocketConfig;
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.TitledBorder;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 public class Pane {
 
-    private final JLayeredPane layeredPane;
-    private final JLabel totalLabel;
-    private final JLabel totalWithTaxLabel;
-    private final JLabel computedTaxLabel;
-    private final JLabel discountLabel;
-    private final JLabel customerChangeLabel;
-    private final JLabel nextTotalLabel;
+    private JLayeredPane layeredPane;
+    private JTable table;
+    private DefaultTableModel model;
+    private JScrollPane scrollPane;
+    private TransactionIdGenerator transactionIdGenerator;
+    private Modal popUpModal;
+    private Label label;
 
-    private ArrayList<Double> prices;
+    // Existing variables
+    private List<Double> prices;
+    private SocketConfig clientSideVj;
+    private Label customLabel;
+    private double totalAfterTax;
+    private double discountedTotalAmount;
+    private double total;
+    private double discounGet;
+    private double price;
+    private double totalWithTax;
+    private String transactionId;
+    private String discountType;
+    private String discountPercent;
+    private int labelY = 25;
+
+    // Labels for totals
+    private JLabel totalLabel;
+    private JLabel computedTaxLabel;
+    private JLabel discountLabel;
+    private JLabel totalWithTaxLabel;
+    private JLabel nextTotalLabel;
+    private JLabel customerChangeLabel;
+
+    // Item tracking
     private Set<String> itemSet;
     private HashMap<String, Integer> itemQuantityHashMap = new HashMap<>();
     private HashMap<String, JLabel> itemLabels = new HashMap<>();
 
-
-    private String transactionId;
-    public String discountType;
-    public String discountPercent;
-    private int labelY = 25;
-    private double total;
-    private double totalAfterTax;
-    private double discounGet;
-    private double discountedTotalAmount;
-    private double totalWithTax;
-    private double price;
-
-    private Label customLabel;
-    private Modal popUpModal;
-    private TransactionIdGenerator transactionIdGenerator;
-    private SocketConfig clientSideVj;
-
-
-    public Pane(){
+    public Pane() {
         layeredPane = new JLayeredPane();
-        layeredPane.setBounds(600, 1, 400, 560);
+        layeredPane.setBounds(600, 1, 600, 400); // Reduced height to show only Total Before Tax
         layeredPane.setBackground(Color.white);
         layeredPane.setOpaque(true);
 
@@ -63,21 +71,66 @@ public class Pane {
                 TitledBorder.CENTER,
                 TitledBorder.TOP,
                 new Font("Arial", Font.BOLD, 14),
-                new Color(50, 50, 50) // Dark gray text
+                new Color(50, 50, 50)
         );
 
-        // Add padding to the title
         titledBorder.setTitleJustification(TitledBorder.CENTER);
         layeredPane.setBorder(titledBorder);
 
+        // Initialize existing variables
         prices = new ArrayList<>();
-        //clientSideVj = new SocketConfig("192.168.8.125", 1234); SEAN SOCKET
         clientSideVj = new SocketConfig("localhost", 8080);
         clientSideVj.sendLogAsync("Mock Basic Point of Sales System is Online!");
-
         customLabel = new Label();
-
         totalAfterTax = discountedTotalAmount;
+        itemSet = new HashSet<>();
+
+        // Create the table
+        createTable();
+
+        // Create total labels
+        createTotalLabels();
+    }
+
+    private void createTable() {
+        // Column Names
+        String[] columnNames = {"Description", "Price", "Quantity", "Total"};
+
+        // Table Model
+        model = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // make cells read-only
+            }
+        };
+
+        table = new JTable(model);
+        table.setFont(new Font("Arial", Font.PLAIN, 14));
+        table.setRowHeight(25);
+        table.setFillsViewportHeight(true);
+
+        // Set preferred width for Description column
+        TableColumn descriptionColumn = table.getColumnModel().getColumn(0);
+        descriptionColumn.setPreferredWidth(250); // Increased width for Description column
+
+        // Improve table appearance
+        table.setGridColor(new Color(230, 230, 230));
+        table.setSelectionBackground(new Color(184, 207, 229));
+        table.setSelectionForeground(Color.BLACK);
+        table.getTableHeader().setBackground(new Color(240, 240, 240));
+        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
+
+        // Create scroll pane for the table
+        scrollPane = new JScrollPane(table);
+        scrollPane.setBounds(10, 30, 580, 300); // Height for table only
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.getViewport().setBackground(Color.WHITE);
+
+        layeredPane.add(scrollPane, JLayeredPane.DEFAULT_LAYER);
+    }
+
+    private void createTotalLabels() {
 
         totalLabel = customLabel.getLabel("totalBeforeTax", total);
         computedTaxLabel = customLabel.getLabel("computedTax", total);
@@ -86,8 +139,65 @@ public class Pane {
         nextTotalLabel = customLabel.getLabel("nextTotal", total);
         customerChangeLabel = customLabel.getLabel("customerChange", total);
 
+        // Add only totalLabel to the layered pane by default
         layeredPane.add(totalLabel, JLayeredPane.DEFAULT_LAYER);
+    }
 
+    public JLayeredPane displayPane() {
+        return layeredPane;
+    }
+
+    // Add or update item in the table
+    public void addOrUpdateItem(String itemName, double price, int quantity) {
+        SwingUtilities.invokeLater(() -> {
+            double totalPrice = price * quantity;
+
+            // Check if item already exists in the table
+            for (int i = 0; i < model.getRowCount(); i++) {
+                if (model.getValueAt(i, 0).equals(itemName)) {
+                    // Update existing row
+                    model.setValueAt(String.format("$%.2f", price), i, 1);
+                    model.setValueAt(quantity, i, 2);
+                    model.setValueAt(String.format("$%.2f", totalPrice), i, 3);
+                    System.out.println("Updated item: " + itemName + " with price: $" + price + " and quantity: " + quantity);
+                    updateTotalDisplay();
+                    return;
+                }
+            }
+
+            // Add new row
+            model.addRow(new Object[]{
+                    itemName,
+                    String.format("$%.2f", price),
+                    quantity,
+                    String.format("$%.2f", totalPrice)
+            });
+            System.out.println("Added new item: " + itemName + " with price: $" + price + " and quantity: " + quantity);
+            updateTotalDisplay();
+        });
+    }
+
+    // Remove an item from the table
+    public void removeItem(String itemName) {
+        SwingUtilities.invokeLater(() -> {
+            for (int i = 0; i < model.getRowCount(); i++) {
+                if (model.getValueAt(i, 0).equals(itemName)) {
+                    model.removeRow(i);
+                    System.out.println("Removed item: " + itemName);
+                    updateTotalDisplay();
+                    return;
+                }
+            }
+        });
+    }
+
+    // Clear all items from the table
+    public void clearAllItems() {
+        SwingUtilities.invokeLater(() -> {
+            model.setRowCount(0);
+            System.out.println("Cleared all items from table");
+            updateTotalDisplay();
+        });
     }
 
     public void addTextToScreen(String itemName, Double scannedPrice) {
@@ -107,86 +217,61 @@ public class Pane {
         // Quantity Function Calling
         quantityPerItem(itemName);
 
-        JLabel itemLabelInPanel = new JLabel();
-        itemLabelInPanel.setFont(new Font("Arial ", Font.BOLD, 15));
-
         if (itemSet == null) {
             itemSet = new HashSet<>();
         }
 
-        /*
-            * Fix to the Quantity issue that duplicates the same label even its present.
-            * We created a new class level HashMap to store the quantity of each item.
-            * private HashMap<String, JLabel> itemLabels = new HashMap<>();
-            * We also fix the invisible label gap.
-        */
-        if (
-                !"Next Dollar".equalsIgnoreCase(itemName) &&
-                        !"Exact Dollar".equalsIgnoreCase(itemName) &&
-                        !"Void Transaction".equalsIgnoreCase(itemName) &&
-                        !"Void Item".equalsIgnoreCase(itemName)  &&
-                        !"Quantity Change".equalsIgnoreCase(itemName)) {
+        if (!"Next Dollar".equalsIgnoreCase(itemName) &&
+                !"Exact Dollar".equalsIgnoreCase(itemName) &&
+                !"Void Transaction".equalsIgnoreCase(itemName) &&
+                !"Void Item".equalsIgnoreCase(itemName) &&
+                !"Quantity Change".equalsIgnoreCase(itemName)) {
 
             int quantity = itemQuantityHashMap.getOrDefault(itemName, 1);
 
-            // If you want to display in the panel the totalAmount of the specific item, you can uncomment the below code.
-            // double totalItemPrice = finalPrice * quantity;
-            double totalItemPrice = finalPrice * quantity;
-            String displayText = String.format("%-30s$%.2f                (x%d)", itemName, price, quantity);
+            clientSideVj.sendLogAsync("Item Added/Updated: " + itemName
+                    + " Price: " + finalPrice
+                    + " Quantity: " + quantity);
+
+            // Add/update item in the table
+            addOrUpdateItem(itemName, finalPrice, quantity);
 
             if (!itemSet.contains(itemName)) {
-                // New item - create new label AND increment labelY
                 itemSet.add(itemName);
-                itemLabelInPanel.setText(displayText);
-
-                // Send logs to the Virtual Journal
                 clientSideVj.sendLogAsync("Item Added: " + itemName + " \nPrice: " + finalPrice + " \nQuantity: " + quantity);
-                itemLabels.put(itemName, itemLabelInPanel);
-                itemLabelInPanel.setBounds(10, labelY, 380, 20);
-                labelY += 25; // Only increment for new labels
             } else {
-                // Existing item - just update the existing label, don't increment labelY
-                JLabel existingLabel = itemLabels.get(itemName);
-                if (existingLabel != null) {
-                    existingLabel.setText(displayText);
-                }
                 clientSideVj.sendLogAsync("Item Updated: " + itemName + " \nPrice: " + finalPrice + " \nUpdated Quantity: " + quantity);
-                System.out.println("Updated: " + displayText);
             }
 
             resetUi();
-
         }
 
         prices.add(finalPrice);
         total = calculateTotal();
 
-
-        DollarConversion dollarConversion1 = new DollarConversion();
-
-
-        //Calling Action Button Function
+        // Calling Action Button Function
         actionButtons(itemName);
 
-                totalLabel.setText(
-                String.format("%-50s$%.2f", "Total Before Tax: ", customLabel.getDouble("totalBeforeTax", total))
+        // Update total labels
+        totalLabel.setText(
+                String.format("%-93s$%.2f", "Total Before Tax: ", customLabel.getDouble("totalBeforeTax", total))
         );
         computedTaxLabel.setText(
-                String.format("%-47s$%.2f", "Computed Tax 7%: ",customLabel.getDouble("computedTax",discountedTotalAmount))
+                String.format("%-90s$%.2f", "Computed Tax 7%: ", customLabel.getDouble("computedTax", discountedTotalAmount))
         );
 
         if (discountType != null && !discountType.isEmpty()) {
             if (discountType.equalsIgnoreCase("SENIOR")) {
                 discountLabel.setText(
-                        String.format("Discount (%s - %s): %-21s $%.2f",
+                        String.format("Discount (%s - %s): %-63s $%.2f",
                                 discountType,
                                 discountPercent,
-                                "", // filler spaces
+                                "",
                                 customLabel.getDouble("discount", discounGet))
                 );
             } else if (discountType.equalsIgnoreCase("COUPON")) {
                 discountLabel.setText(
-                        String.format("Discount (%s - %s): %-17s  $%.2f",
+                        String.format("Discount (%s - %s): %-58s  $%.2f",
                                 discountType,
                                 discountPercent,
                                 "",
@@ -194,7 +279,7 @@ public class Pane {
                 );
             } else {
                 discountLabel.setText(
-                        String.format("Discount (%s - %s): %-23s  $%.2f",
+                        String.format("Discount (%s - %s): %-65s  $%.2f",
                                 discountType,
                                 discountPercent,
                                 "",
@@ -203,26 +288,12 @@ public class Pane {
             }
         }
 
-
-
-
-
-        totalWithTaxLabel.setText(String.format("%-50s$%.2f", "Discounted Total: ",customLabel.getDouble("totalWithTax",discountedTotalAmount)));
-
+        totalWithTaxLabel.setText(String.format("%-92s$%.2f", "Discounted Total:", customLabel.getDouble("totalWithTax", discountedTotalAmount)));
         totalAfterTax = customLabel.getDouble("totalWithTax", discountedTotalAmount);
-        /*
-            * We move this code inside the Next Dollar Function to avoid the duplicate label issue and invisible gap
-              itemLabelInPanel.setBounds(10, labelY, 380, 20);
-              labelY += 25;
-        */
-        itemLabelInPanel.setOpaque(false);
-        itemLabelInPanel.setVisible(true);
-        layeredPane.add(itemLabelInPanel, JLayeredPane.DEFAULT_LAYER);
-
     }
 
-    public double itemPrice(String itemName){
-        switch (itemName){
+    public double itemPrice(String itemName) {
+        switch (itemName) {
             case "Donut":
                 price = 5.00;
                 break;
@@ -244,8 +315,8 @@ public class Pane {
             case "Next Dollar":
             case "Exact Dollar":
             case "Void Transaction":
-                case "Void Item":
-                    case "Quantity Change":
+            case "Void Item":
+            case "Quantity Change":
                 price = 0.00;
                 break;
             default:
@@ -254,23 +325,16 @@ public class Pane {
         return price;
     }
 
-    public Double convertToNextDollar(Double totalAfterTax){
+    public Double convertToNextDollar(Double totalAfterTax) {
         DollarConversion dollarConversion = new DollarConversion();
         clientSideVj.sendLogAsync("Converting to Next Dollar: " + String.format("$%.2f", totalAfterTax));
         return dollarConversion.getNextDollarValue(totalAfterTax);
     }
 
-
     private double calculateTotal() {
-
         Double calculatedTotal = prices.stream().mapToDouble(Double::doubleValue).sum();
         clientSideVj.sendLogAsync("Calculated Total " + calculatedTotal);
         return calculatedTotal;
-    }
-
-
-    public JLayeredPane displayPane(){
-        return layeredPane;
     }
 
     public void scanBarcode() {
@@ -278,54 +342,47 @@ public class Pane {
         barcodeScanner.scanBarcode();
     }
 
-    /*
-     * Action Buttons *
-     * Next Dollar Button
-     * Void Transaction Button
-     * Void Item Button
-     * Quantity Change Button
-     */
+    public void actionButtons(String itemName) {
+        popUpModal = new Modal();
+        if (!itemQuantityHashMap.isEmpty()) {
+            if (itemName.equalsIgnoreCase("Next Dollar") || itemName.equalsIgnoreCase("Exact Dollar")) {
+                transactionIdGenerator = new TransactionIdGenerator();
+                transactionId = transactionIdGenerator.generateTransactionId();
+                nextDollarButtonIsClicked(true, itemName, totalAfterTax);
+            } else if (itemName.equalsIgnoreCase("Void Transaction")) {
+                String userChoice = popUpModal.displayModal("Void Transaction Confirmation",
+                        "Are you sure you want to void the transaction?",
+                        "Yes",
+                        "No");
 
-    public void actionButtons(String itemName){
-            if (!itemQuantityHashMap.isEmpty()) {
-                if (itemName.equalsIgnoreCase("Next Dollar") || itemName.equalsIgnoreCase("Exact Dollar")) {
-                    transactionIdGenerator = new TransactionIdGenerator();
-                    transactionId = transactionIdGenerator.generateTransactionId();
-                    nextDollarButtonIsClicked(true, itemName, totalAfterTax);
-                }
-                System.out.println("Item Quantity HashMap: " + itemQuantityHashMap);
-
-                if (itemName.equalsIgnoreCase("Void Transaction")) {
-                    voidTransact(true);
-                }
-
-                if (itemName.equalsIgnoreCase("Void Item")) {
-                    voidItemTransaction(true);
-                }
-
-                if (itemName.equalsIgnoreCase("Quantity Change")) {
-                    changeItemQuantity(true, "Juice", 1);
+                if ("Yes".equals(userChoice)) {
+                    voidTransact();
+                } else {
+                    System.out.println("Void Transaction Cancelled");
+                    clientSideVj.sendLogAsync("Void Transaction Cancelled");
                 }
             } else {
-                popUpModal = new Modal();
-                popUpModal.displayModal("Empty Cart", "No items in the cart. Please add items to proceed.", "OK", "Cancel");
-                clientSideVj.sendLogAsync("Item Quantity HashMap is Empty");
-                System.out.println("Item Quantity HashMap is Empty");
+                // Reset UI for other actions (Void Item, Quantity Change)
+                resetUi();
+                if (itemName.equalsIgnoreCase("Void Item")) {
+                    voidItemTransaction(true);
+                } else if (itemName.equalsIgnoreCase("Quantity Change")) {
+                    changeItemQuantity(true, "Juice", 1);
+                }
             }
+            System.out.println("Item Quantity HashMap: " + itemQuantityHashMap);
+        } else {
+            popUpModal.displayModal("Empty Cart", "No items in the cart. Please add items to proceed.", "OK", "Cancel");
+            clientSideVj.sendLogAsync("Item Quantity HashMap is Empty");
+            System.out.println("Item Quantity HashMap is Empty");
+        }
     }
 
-    /*
-        * Next Dollar Case Fix to Illegal Component Issue. Need to refresh the label to display the new value.
-        * This handles the Next Dollar Button and the Exact Dollar Button.
-    */
-    public void nextDollarButtonIsClicked(boolean showModal, String buttonName, Double value){
-
+    public void nextDollarButtonIsClicked(boolean showModal, String buttonName, Double value) {
         popUpModal = new Modal();
 
         DollarConversion dollarConversion = new DollarConversion();
-
         totalWithTax = dollarConversion.getNextDollarValue(discountedTotalAmount);
-
         clientSideVj.sendLogAsync("Total With Tax: " + totalWithTax);
 
         if (showModal) {
@@ -335,35 +392,34 @@ public class Pane {
                     "Proceed",
                     "Cancel");
 
-            // Check if user cancelled
             if ("Cancel".equals(discountChoice) || discountChoice == null) {
                 System.out.println("Discount Cancelled");
                 clientSideVj.sendLogAsync("Discount Cancelled");
+                resetUi(); // Reset UI on cancel
                 return;
             }
 
-            // Process discount selection
             if (discountChoice != null && !discountChoice.equals("Proceed")) {
                 discountType = discountChoice;
-                // Parse the discount choice
                 String couponCode = null;
 
                 if (discountChoice.startsWith("COUPON:")) {
                     discountType = "COUPON";
-                    couponCode = discountChoice.substring(7); // Extract coupon code after "COUPON:"
+                    couponCode = discountChoice.substring(7);
                     System.out.println("Coupon discount selected with code: " + couponCode);
                     clientSideVj.sendLogAsync("Coupon discount selected with code: " + couponCode);
                 } else {
-                    discountType = discountChoice; // PWD or SENIOR
-                    couponCode = discountChoice; // For PWD/SENIOR, the discount value is the type itself
+                    discountType = discountChoice;
+                    couponCode = discountChoice;
                     System.out.println(discountType + " discount selected");
                     clientSideVj.sendLogAsync(discountType + " discount selected");
                 }
 
-                // Call discount API with the selected type
                 discountApi(discountType, couponCode);
 
-                // Proceed to payment confirmation
+                Double totalAfterTax = customLabel.getDouble("totalWithTax", discountedTotalAmount);
+
+
                 String paymentChoice = popUpModal.displayModal("Payment Transaction Confirmation",
                         "Select a Payment Method",
                         "Cash Payment",
@@ -372,115 +428,91 @@ public class Pane {
                 if ("Cash Payment".equals(paymentChoice)) {
                     clientSideVj.sendLogAsync("Cash Payment is Selected");
                     System.out.println("Cash Payment is Selected");
+                    layeredPane.setBounds(600, 1, 600, 480);
+                    customerChangeLabel.setBounds(10,450, 580,20);
+                    nextTotalLabel.setVisible(true);
+                    // Set customer change for cash payment
+                    if (buttonName.equalsIgnoreCase("Exact Dollar")) {
+                        nextTotalLabel.setText(String.format("%-93s$%.2f", "Exact Dollar Value: ", totalAfterTax));
+                        customerChangeLabel.setText(String.format("%-90s $%.2f", "Customer Change:" , customLabel.getDouble("customerChangeExactDollar", totalAfterTax)));
+                        clientSideVj.sendLogAsync("Exact Dollar Value: " + String.format("$%.2f", totalAfterTax));
+                    } else {
+                        nextTotalLabel.setText(String.format("%-93s$%.2f", "Next Dollar Value: ", convertToNextDollar(totalAfterTax)));
+                        customerChangeLabel.setText(String.format("%-90s $%.2f", "Customer Change:", customLabel.getDouble("customerChangeNextDollar", totalAfterTax)));
+                    }
+
                 } else if ("Credit/Debit".equals(paymentChoice)) {
                     System.out.println("Credit/Debit Payment is Selected");
                     clientSideVj.sendLogAsync("Credit/Debit Payment is Selected");
+                    //Hide the next dollar label
+                    nextTotalLabel.setVisible(false);
+                    layeredPane.setBounds(600, 1, 600, 460);
+                    customerChangeLabel.setBounds(10,430, 580,20);
+                    customerChangeLabel.setText(String.format("%-80sNO CHANGE", "Credit Card Payment -"));
                 } else {
                     System.out.println("Payment Cancelled");
                     clientSideVj.sendLogAsync("Payment Cancelled");
+                    resetUi(); // Reset UI on cancel
                     return;
                 }
 
                 clientSideVj.sendLogAsync("Please pay a total of: " + String.format("$%.2f", value));
                 System.out.println("Please pay a total of: " + String.format("$%.2f", value));
-
             } else {
                 System.out.println("No discount type selected");
                 clientSideVj.sendLogAsync("No discount type selected");
+                resetUi(); // Reset UI if no discount selected
                 return;
             }
         }
 
-
-        layeredPane.setBounds(600,1,400
-                ,660);
+        // Expand pane and show all labels
         totalWithTaxLabel.setOpaque(true);
         totalWithTaxLabel.setBackground(new Color(0x727D73));
-
-        // Remove components if they already exist
-        layeredPane.remove(nextTotalLabel);
-        layeredPane.remove(totalWithTaxLabel);
-        layeredPane.remove(computedTaxLabel);
-        layeredPane.remove(discountLabel);
-        layeredPane.remove(customerChangeLabel);
-
-        // Now add them
-        discountLabel.setBounds(10,550,380,20);
-        computedTaxLabel.setBounds(10,570,380,20);
-        totalWithTaxLabel.setBounds(10,590,380,20);
-
+        // Add all labels to layeredPane and make them visible
+        layeredPane.removeAll();
+        layeredPane.add(scrollPane, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(totalLabel, JLayeredPane.DEFAULT_LAYER);
         layeredPane.add(computedTaxLabel, JLayeredPane.DEFAULT_LAYER);
         layeredPane.add(discountLabel, JLayeredPane.DEFAULT_LAYER);
         layeredPane.add(totalWithTaxLabel, JLayeredPane.DEFAULT_LAYER);
         layeredPane.add(nextTotalLabel, JLayeredPane.DEFAULT_LAYER);
         layeredPane.add(customerChangeLabel, JLayeredPane.DEFAULT_LAYER);
 
-        Double totalAfterTax = customLabel.getDouble("totalWithTax", discountedTotalAmount);
-
-
-        if(buttonName.equalsIgnoreCase("Exact Dollar")){
-            nextTotalLabel.setText(String.format("%-51s$%.2f", "Exact Dollar Value:",  totalAfterTax));
-            customerChangeLabel.setText(String.format("%-48s $%.2f", "Customer Change:", customLabel.getDouble("customerChangeExactDollar", totalAfterTax)));
-            clientSideVj.sendLogAsync("Exact Dollar Value: " + String.format("$%.2f", totalAfterTax));
-        } else {
-            nextTotalLabel.setText(String.format("%-51s$%.2f", "Next Dollar Value:", convertToNextDollar(totalAfterTax)));
-            customerChangeLabel.setText(String.format("%-48s $%.2f", "Customer Change:", customLabel.getDouble("customerChangeNextDollar", totalAfterTax)));
-
-        }
+        // Make all labels visible
+        computedTaxLabel.setVisible(true);
+        discountLabel.setVisible(true);
+        totalWithTaxLabel.setVisible(true);
+        customerChangeLabel.setVisible(true);
 
         // Refresh the display
         layeredPane.revalidate();
         layeredPane.repaint();
     }
 
+    private void voidTransact() {
+            // Reset logic only executes if user clicks "Yes"
+            SwingUtilities.invokeLater(() -> {
+                model.setRowCount(0); // Clear all item rows
 
-    /*
-        * Void Transaction Case Fix to Illegal Component Issue. Need to refresh the label to display the new value.
-        * Need to remove all components and re-add them.
-    */
-    private void voidTransact(boolean showModal) {
-        popUpModal = new Modal();
+                // Clear collections
+                itemQuantityHashMap.clear();
+                itemLabels.clear();
+                itemSet.clear();
+                prices.clear();
 
-        if (showModal) {
-            String userChoice = popUpModal.displayModal("Void Transaction Confirmation",
-                    "Are you sure you want to void the transaction?",
-                    "Yes",
-                    "No");
+                // Reset label values
+                totalLabel.setText(
+                        String.format("%-93ss$%.2f", "Total Before Tax: ", customLabel.getDouble("totalBeforeTax", 0.00))
+                );
+                resetUi();
+            });
 
-
-            if (!"Yes".equals(userChoice)) {
-                System.out.println("Void Transaction Cancelled");
-                clientSideVj.sendLogAsync("Void Transaction Cancelled");
-                return;
-            }
             System.out.println("Void Transaction Confirmed");
             clientSideVj.sendLogAsync("Void Transaction Confirmed");
-        }
 
-        //Clear HashMaps
-        itemQuantityHashMap.clear();
-        itemLabels.clear();
-        itemSet.clear();
-
-        // Reset panel - only executes if showModal is false OR user clicked "Yes"
-        layeredPane.removeAll();
-        prices.clear();
-        itemSet.clear();
-        total = 0.00;
-        totalAfterTax = 0.00;
-        labelY = 25;
-        totalLabel.setText("Total Before Tax: $0.00");
-        totalWithTaxLabel.setOpaque(false);
-        computedTaxLabel.setText("Computed Tax: $0.00");
-        totalWithTaxLabel.setText("Total After Tax: $0.00");
-        layeredPane.setBounds(600,1,400
-                ,600);
-        layeredPane.add(totalLabel, JLayeredPane.DEFAULT_LAYER);
-        layeredPane.revalidate();
-        layeredPane.repaint();
     }
 
-    // Fix the hashMap issue with quantity. By in case of using a FUNCTION_SCOPED currentQuantity variable we move it to CLASS_LEVEL.
     public HashMap<String, Integer> quantityPerItem(String itemName) {
         if (!itemName.equalsIgnoreCase("Next Dollar")
                 && !itemName.equalsIgnoreCase("Exact Dollar")
@@ -500,7 +532,6 @@ public class Pane {
         return itemQuantityHashMap;
     }
 
-
     public void voidItemTransaction(boolean showModal) {
         popUpModal = new Modal();
         if (showModal) {
@@ -513,12 +544,10 @@ public class Pane {
             if ("Cancel".equals(userChoice) || userChoice == null) {
                 System.out.println("Voiding Item: is cancelled");
                 clientSideVj.sendLogAsync("Voiding Item: is cancelled");
-                return; // Exit method without voiding
+                return;
             }
 
-
             String itemName = "Proceed".equals(userChoice) ? null : userChoice;
-
 
             if (itemName == null || itemName.trim().isEmpty()) {
                 System.out.println("No valid item name provided for voiding");
@@ -531,7 +560,6 @@ public class Pane {
             voidItemConfirmation(showModal, itemName);
         }
     }
-
 
     public void voidItemConfirmation(boolean showModal, String itemName) {
         popUpModal = new Modal();
@@ -549,94 +577,56 @@ public class Pane {
             clientSideVj.sendLogAsync("Item: " + (itemName != null ? itemName : "Unknown Item") + " is voided");
         }
 
-        // Remove item from collections and UI
+        // Remove item from collections and table
         if (itemName != null) {
 
-            if (itemName != null && itemLabels.containsKey(itemName)) {
-                // Get references before removing
-                Component itemComponent = itemLabels.get(itemName);
-                double itemPrice = itemPrice(itemName); // Use your existing method
-
-                itemLabels.remove(itemName);
-
-                System.out.println("DEBUG: Prices before removal: " + prices);
-                System.out.println("DEBUG: Total before removal: $" + calculateTotal());
-                clientSideVj.sendLogAsync("DEBUG: Prices before removal: " + prices);
-                clientSideVj.sendLogAsync("DEBUG: Total before removal: $" + calculateTotal());
-
-                Double priceToRemove = Double.valueOf(itemPrice);
-                prices.removeIf(price -> price.equals(priceToRemove));
-
-                System.out.println("DEBUG: Prices after removal: " + prices);
-                clientSideVj.sendLogAsync("DEBUG: Prices after removal: " + prices);
-
-                layeredPane.remove(itemComponent);
-                layeredPane.revalidate();
-                layeredPane.repaint();
-
-                repositionItemLabels();
-                total = calculateTotal();
-                customLabel.getDouble("totalBeforeTax", total);
-                updateTotalDisplay();
-
-                System.out.println("Item '" + itemName + "' voided. New total: $" + total);
-                clientSideVj.sendLogAsync("Item '" + itemName + "' voided. New total: $" + total);
-
-            } else {
-                System.out.println("Item '" + itemName + "' not found in the current transaction");
-                clientSideVj.sendLogAsync("Item '" + itemName + "' not found in the current transaction");
+            removeItem(itemName);
+            itemQuantityHashMap.remove(itemName);
+            itemSet.remove(itemName);
+            itemLabels.remove(itemName);
+            double itemPrice = itemPrice(itemName);
+            int quantity = itemQuantityHashMap.getOrDefault(itemName, 1);
+            for (int i = 0; i < quantity; i++) {
+                prices.remove(Double.valueOf(itemPrice));
             }
+            total = calculateTotal();
+            updateTotalDisplay();
+            resetUi();
         }
     }
-
 
     private void updateTotalDisplay() {
-        totalLabel.setText(
-                String.format("Total Before Tax: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t$%.2f",
-                        customLabel.getDouble("totalBeforeTax", total))
-        );
-    }
-
-
-    private void repositionItemLabels() {
-        int currentY = 25; // Reset to starting position
-
-        // Go through all remaining items and reposition them
-        for (Map.Entry<String, JLabel> entry : itemLabels.entrySet()) {
-            JLabel label = entry.getValue();
-            label.setBounds(10, currentY, 380, 20);
-            currentY += 25; // Move to next position
-        }
-
-        resetUi();
-
-        // Update labelY to the next available position
-        labelY = currentY;
+        totalLabel.setText(String.format("%-93s$%.2f", "Total Before Tax:", total));
+        totalWithTaxLabel.setText(String.format("%-50s$%.2f", "Discounted Total:", customLabel.getDouble("totalWithTax", discountedTotalAmount)));
     }
 
     public void changeItemQuantity(boolean showModal, String itemName, int newQuantity) {
+        if (popUpModal == null) {
+            System.err.println("popUpModal is not initialized!");
+            return;
+        }
+        if (clientSideVj == null) {
+            System.err.println("clientSideVj is not initialized!");
+            return;
+        }
 
-        String actualItemName = itemName; // Use the parameter by default
-        int actualNewQuantity = newQuantity; // Use the parameter by default
+        String actualItemName = itemName;
+        int actualNewQuantity = newQuantity;
 
         if (showModal) {
             String modalTitle = "Quantity Change Confirmation";
             String modalMessage = "Enter an Item name and its new Quantity";
             String userChoice = popUpModal.displayQuantityModal(modalTitle, modalMessage, "Proceed", "Cancel");
 
-            // Check if user cancelled
             if ("Cancel".equals(userChoice)) {
                 System.out.println("Quantity change cancelled");
                 clientSideVj.sendLogAsync("Quantity change cancelled");
                 return;
             }
 
-            // Get the item name from dialog input when modal is shown
             String fetchInputtedValue = popUpModal.returnItemValues();
             popUpModal.processItemValues(fetchInputtedValue);
 
-            // Extract item name and quantity (assuming format is "ItemName Quantity")
-            // Find the last space to separate item name from quantity
             String trimmedInput = fetchInputtedValue.trim();
             int lastSpaceIndex = trimmedInput.lastIndexOf(' ');
 
@@ -646,18 +636,16 @@ public class Pane {
 
                 try {
                     int dialogQuantity = Integer.parseInt(potentialQuantity);
-                    actualItemName = potentialItemName; // Use everything before the last space as item name
-                    actualNewQuantity = dialogQuantity; // Use the quantity from dialog as new quantity
+                    actualItemName = potentialItemName;
+                    actualNewQuantity = dialogQuantity;
                     System.out.println("Setting new quantity from dialog: " + dialogQuantity);
                     clientSideVj.sendLogAsync("Setting new quantity from dialog: " + dialogQuantity);
                 } catch (NumberFormatException e) {
-                    // If last part isn't a number, use the whole string as item name
                     actualItemName = trimmedInput;
                     System.out.println("No valid quantity found, using whole string as item name and parameter quantity: " + actualNewQuantity);
                     clientSideVj.sendLogAsync("No valid quantity found, using whole string as item name and parameter quantity: " + actualNewQuantity);
                 }
             } else {
-                // No spaces found, use the whole string as item name
                 actualItemName = trimmedInput;
                 System.out.println("No spaces found, using whole string as item name: " + actualItemName);
                 clientSideVj.sendLogAsync("No spaces found, using whole string as item name: " + actualItemName);
@@ -671,8 +659,7 @@ public class Pane {
             clientSideVj.sendLogAsync("Setting quantity to: " + actualNewQuantity);
         }
 
-        // Use actualItemName and actualNewQuantity for the rest of the logic
-        if (actualItemName != null && itemLabels.containsKey(actualItemName)) {
+        if (actualItemName != null && itemQuantityHashMap.containsKey(actualItemName)) {
             int currentQuantity = itemQuantityHashMap.getOrDefault(actualItemName, 1);
 
             System.out.println("Current quantity for " + actualItemName + ": " + currentQuantity);
@@ -681,10 +668,8 @@ public class Pane {
             clientSideVj.sendLogAsync("Setting new quantity to: " + actualNewQuantity);
 
             if (actualNewQuantity <= 0) {
-                // Remove item completely when quantity is 0 or less
                 removeItemCompletely(actualItemName);
             } else {
-                // Update quantity to the new value
                 updateItemQuantity(actualItemName, actualNewQuantity);
             }
         } else {
@@ -693,27 +678,17 @@ public class Pane {
         }
     }
 
-    // Keep your existing helper methods unchanged
     private void removeItemCompletely(String itemName) {
         System.out.println("Removing item completely: " + itemName);
-        // Get current quantity to know how many prices to remove
         int currentQuantity = itemQuantityHashMap.getOrDefault(itemName, 1);
         double itemPriceValue = itemPrice(itemName);
-        // Remove all instances of this item's price from prices list
         for (int i = 0; i < currentQuantity; i++) {
-            Double priceToRemove = Double.valueOf(itemPriceValue);
-            prices.remove(priceToRemove);
+            prices.remove(Double.valueOf(itemPriceValue));
         }
-        // Remove from all collections
-        Component itemComponent = itemLabels.get(itemName);
         itemLabels.remove(itemName);
         itemQuantityHashMap.remove(itemName);
         itemSet.remove(itemName);
-        // Remove from UI
-        layeredPane.remove(itemComponent);
-        // Reposition remaining items
-        repositionItemLabels();
-        // Update total and display
+        removeItem(itemName);
         total = calculateTotal();
         customLabel.getDouble("totalBeforeTax", total);
         updateTotalDisplay();
@@ -725,35 +700,23 @@ public class Pane {
     private void updateItemQuantity(String itemName, int newQuantity) {
         int currentQuantity = itemQuantityHashMap.getOrDefault(itemName, 1);
         double itemPriceValue = itemPrice(itemName);
-        // Calculate price difference
         int quantityDifference = newQuantity - currentQuantity;
         if (quantityDifference > 0) {
-            // Adding more items - add prices to list
             for (int i = 0; i < quantityDifference; i++) {
                 prices.add(itemPriceValue);
             }
             System.out.println("Added " + quantityDifference + " more of " + itemName);
             clientSideVj.sendLogAsync("Added " + quantityDifference + " more of " + itemName);
         } else if (quantityDifference < 0) {
-            // Removing items - remove prices from list
             int pricesToRemove = Math.abs(quantityDifference);
             for (int i = 0; i < pricesToRemove; i++) {
-                Double priceToRemove = Double.valueOf(itemPriceValue);
-                prices.remove(priceToRemove);
+                prices.remove(Double.valueOf(itemPriceValue));
             }
             System.out.println("Removed " + pricesToRemove + " of " + itemName);
             clientSideVj.sendLogAsync("Removed " + pricesToRemove + " of " + itemName);
         }
-        // Update quantity in HashMap
         itemQuantityHashMap.put(itemName, newQuantity);
-        // Update the display text for this item
-        double totalItemPrice = itemPriceValue * newQuantity;
-        String displayText = String.format("%-30s$%.2f                (x%d)", itemName, totalItemPrice, newQuantity);
-        JLabel existingLabel = itemLabels.get(itemName);
-        if (existingLabel != null) {
-            existingLabel.setText(displayText);
-        }
-        // Update total and display
+        addOrUpdateItem(itemName, itemPriceValue, newQuantity);
         total = calculateTotal();
         customLabel.getDouble("totalBeforeTax", total);
         updateTotalDisplay();
@@ -762,12 +725,10 @@ public class Pane {
         clientSideVj.sendLogAsync("Updated " + itemName + " quantity to " + newQuantity + ". New total: $" + total);
     }
 
-    // Enhanced discountApi method to handle different discount types
     public ApiResponse discountApi(String discountType, String discount) {
         ApiConfig apiConfig = new ApiConfig();
         clientSideVj.sendLogAsync("Discount API is being called for type: " + discountType);
 
-        // Build JSON request body - discount value comes from user input
         String jsonRequest = String.format(
                 "{\"transactionId\":\"%s\", \"discount\":\"%s\", \"totalAmountBeforeTax\":%.2f}",
                 transactionId, discount, total
@@ -776,14 +737,11 @@ public class Pane {
         clientSideVj.sendLogAsync("Discount Type (URL param): " + discountType);
         clientSideVj.sendLogAsync("API Parameters: " + jsonRequest);
 
-        // For COUPON type, pass the coupon code as URL parameter
         String couponCodeParam = "COUPON".equals(discountType) ? discount : null;
 
-        // Call API with query parameters
         ApiResponse discountResponse = apiConfig.callDiscountApi(jsonRequest, discountType, couponCodeParam);
 
         try {
-            // Process the response
             String responseTransactionId = discountResponse.getTransactionId();
             discountPercent = discountResponse.getDiscount();
             Double discountAmount = discountResponse.getAmountDiscounted();
@@ -792,10 +750,8 @@ public class Pane {
             discounGet = discountAmount;
             discountedTotalAmount = finalTotal;
 
-
             clientSideVj.sendLogAsync("API Response: " + discountResponse);
             System.out.println("Discount Response: " + responseTransactionId + " " + discountPercent + " " + discountAmount + " " + finalTotal);
-
         } catch (Exception e) {
             clientSideVj.sendLogAsync("Failed to get discount: " + e.getMessage());
             System.err.println("Failed to get discount: " + e.getMessage());
@@ -804,16 +760,22 @@ public class Pane {
         return discountResponse;
     }
 
-    public void resetUi(){
-        layeredPane.remove(nextTotalLabel);
-        layeredPane.remove(totalWithTaxLabel);
-        layeredPane.remove(computedTaxLabel);
-        layeredPane.remove(discountLabel);
-        layeredPane.remove(customerChangeLabel);
-        layeredPane.setBounds(600,1,400
-                ,560);
+    public void resetUi() {
+        // Reset pane size and show only Total Before Tax label
+        layeredPane.setBounds(600, 1, 600, 400);
+        layeredPane.removeAll();
+        layeredPane.add(scrollPane, JLayeredPane.DEFAULT_LAYER);
+        layeredPane.add(totalLabel, JLayeredPane.DEFAULT_LAYER);
+        totalLabel.setBounds(10, 350, 580, 25);
+        computedTaxLabel.setVisible(false);
+        discountLabel.setVisible(false);
+        totalWithTaxLabel.setVisible(false);
+        nextTotalLabel.setVisible(false);
+        customerChangeLabel.setVisible(false);
+        totalWithTaxLabel.setOpaque(false);
         layeredPane.revalidate();
         layeredPane.repaint();
+        table.revalidate();
+        table.repaint();
     }
-
 }

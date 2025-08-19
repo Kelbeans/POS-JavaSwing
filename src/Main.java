@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import javax.swing.*;
 
 public class Main {
-    private static final int WINDOW_WIDTH = 1000;
+    private static final int WINDOW_WIDTH = 1200;
     private static final int WINDOW_HEIGHT = 1000;
     private static final String WINDOW_TITLE = "Basic Point of Sale System";
 
@@ -85,7 +85,7 @@ public class Main {
         for (int i = 0; i < POPULAR_ITEMS.length; i++) {
             Button button = new Button(pane);
             ArrayList<Integer> position = createPosition(POPULAR_ITEM_POSITIONS[i]);
-            mainWindow.add(button.testButtonPanel(POPULAR_ITEMS[i], position));
+            mainWindow.add(button.customButtons(POPULAR_ITEMS[i], position));
         }
     }
 
@@ -93,7 +93,7 @@ public class Main {
         for (int i = 0; i < ACTION_ITEMS.length; i++) {
             Button button = new Button(pane);
             ArrayList<Integer> position = createPosition(ACTION_BUTTON_POSITIONS[i]);
-            mainWindow.add(button.testButtonPanel(ACTION_ITEMS[i], position));
+            mainWindow.add(button.customButtons(ACTION_ITEMS[i], position));
         }
     }
 

@@ -58,11 +58,10 @@ public class Button {
         this.clientSideVj = new SocketConfig("localhost", 8080);
     }
 
-    public AbstractButton testButtonPanel(String buttonName, ArrayList<Integer> buttonStyle) {
+    public AbstractButton customButtons(String buttonName, ArrayList<Integer> buttonStyle) {
         JButton button = createStyledButton(buttonName, buttonStyle);
         addHoverEffect(button, buttonName);
         addClickAction(button, buttonName);
-
         return button;
     }
 

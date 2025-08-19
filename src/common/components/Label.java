@@ -14,8 +14,7 @@ public class Label {
     private DollarConversion dollarConversion;
     private SocketConfig clientSideVj;
 
-    private int yAxis = 380;
-
+    private int width = 580;
 
     public JLabel getLabel(String labelName, double value) {
         JLabel label = new JLabel();
@@ -25,40 +24,40 @@ public class Label {
         label.setOpaque(false); // This is the key line
         switch (labelName) {
             case "totalBeforeTax":
-                label.setText(String.format("%-52s$%.2f", "Total Before Tax: ",  customValue));
-                label.setBounds(10,530, yAxis,20);
+                label.setText(String.format("%-93s$%.2f", "Total Before Tax: ",  customValue));
+                label.setBounds(10,350, width,20);
                 break;
                 case "computedTax":
                     label.setBackground(new Color(0x9ECAD6));
                     label.setOpaque(true);
                     label.setText(String.format("%-45s$%.2f", "Computed Tax: ", customValue));
-                    label.setBounds(10,550,yAxis,20);
+                    label.setBounds(10,370, width,20);
                     break;
             case "discount":
                 label.setBackground(new Color(0x9ECAD6));
                 label.setOpaque(true);
                 label.setText(String.format("%-45s$%.2f", "Discount: ", customValue));
-                label.setBounds(10,590,yAxis,20);
+                label.setBounds(10,390, width,20);
                 break;
                     case "totalWithTax":
                         label.setText(String.format("%-51s$%.2f", "Total Before Tax: ", customValue));
-                        label.setBounds(10,570,yAxis,20);
+                        label.setBounds(10,410, width,20);
                         break;
                         case "nextTotal":
                             label.setBackground(new Color(0x727D73));
                             label.setOpaque(true);
-                            label.setBounds(10,610,yAxis,20);
+                            label.setBounds(10,430, width,20);
                             break;
                         case "customerChange":
                             label.setBackground(new Color(0xDA6C6C));
 
-                            label.setBounds(10,630,yAxis,20);
+                            label.setBounds(10,450, width,20);
                             label.setOpaque(true);
                             break;
             default:
                 getDouble("Default", value);
                 label.setText("Default: \t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + String.format(" $%.2f", customValue));
-                label.setBounds(10, 590, yAxis,20);
+                label.setBounds(10, 590, width,20);
 
         }
         label.setVisible(true);
